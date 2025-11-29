@@ -1,0 +1,37 @@
+server:
+  port: 8080 # 本地后端端口
+
+spring:
+  application:
+    name: suep-student-service # 服务名，Nacos会用这个名字注册
+
+  # --- MySQL 配置 (连 Windows 本机) ---
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/student?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
+    username: root
+    password: root # 替换你的MySQL密码
+
+  # --- Redis 配置 (连 WSL) ---
+  data:
+    redis:
+      host: localhost # WSL端口转发生效，直接写localhost
+      port: 6379
+      database: 0
+
+  # --- Nacos 配置 (连 WSL) ---
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      discovery:
+        server-addr: localhost:8848 # 注册中心地址
+      config:
+        server-addr: localhost:8848 # 配置中心地址
+        file-extension: yaml # 配置文件格式
+        import-check:
+          enabled: false # 没找到配置不报错，开发方便
+
+# MyBatis Plus 简单配置 (打印SQL日志)
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
