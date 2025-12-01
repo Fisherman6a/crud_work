@@ -4,25 +4,19 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("t_student") // 对应数据库表名
+@TableName("t_student")
 public class Student implements Serializable {
-    private static final long serialVersionUID = 1L;
+    // ⚠️ 核心修改：学号作为主键，类型为 INPUT (手动输入)
+    @TableId(value = "student_number", type = IdType.INPUT)
+    private String studentNumber; 
 
-    @TableId(type = IdType.AUTO) // 主键自增
-    private Long id;
-
-    private String studentNumber; // 学号
-    private String name; // 姓名
-    private String gender; // 性别
-    private Integer age; // 年龄
-    private String className; // 班级
-
-    // 如果你希望自动填充时间，可以在MyBatisPlusConfig中配置，这里简单起见主要由数据库处理
+    private String name;
+    private String gender;
+    private Integer age;
+    private String className;
     private LocalDateTime createTime;
-    private LocalDateTime updateTime;
 }

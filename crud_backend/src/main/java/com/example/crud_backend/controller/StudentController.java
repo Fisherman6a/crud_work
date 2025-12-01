@@ -5,11 +5,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.crud_backend.entity.Student;
 import com.example.crud_backend.service.IStudentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/student")
@@ -23,10 +26,24 @@ public class StudentController {
     private StringRedisTemplate redisTemplate;
 
     // 1. 新增学生
+    // 1. 新增学生 (包含主键冲突检测)
     @PostMapping
-    public String add(@RequestBody Student student) {
-        boolean success = studentService.save(student);
-        return success ? "新增成功" : "新增失败";
+    public Map<String, Object> add(@RequestBody Student student) {
+        Map<String, Object> res = new HashMap<>();
+        try {
+            // MybatisPlus 的 save 方法如果主键重复会抛出异常
+            boolean success = studentService.save(student);
+            res.put("code", success ? 200 : 500);
+            res.put("msg", success ? "新增成功" : "新增失败");
+        } catch (DuplicateKeyException e) {
+            // 检测到主键冲突
+            res.put("code", 409);
+            res.put("msg", "错误：学号 [" + student.getStudentNumber() + "] 已存在！");
+        } catch (Exception e) {
+            res.put("code", 500);
+            res.put("msg", "系统异常：" + e.getMessage());
+        }
+        return res;
     }
 
     // 2. 删除学生
@@ -38,9 +55,13 @@ public class StudentController {
 
     // 3. 修改学生
     @PutMapping
-    public String update(@RequestBody Student student) {
+    public Map<String, Object> update(@RequestBody Student student) {
+        // updateById 会根据 studentNumber 去更新其他字段
         boolean success = studentService.updateById(student);
-        return success ? "修改成功" : "修改失败";
+        Map<String, Object> res = new HashMap<>();
+        res.put("code", success ? 200 : 500);
+        res.put("msg", success ? "修改成功" : "修改失败(学号不存在)");
+        return res;
     }
 
     // 4. 根据ID查询
