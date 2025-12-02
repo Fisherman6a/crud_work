@@ -48,7 +48,7 @@ public class StudentController {
 
     // 2. 删除学生
     @DeleteMapping("/{id}")
-    public String delete(@PathVariable Long id) {
+    public String delete(@PathVariable String id) {
         boolean success = studentService.removeById(id);
         return success ? "删除成功" : "删除失败";
     }
