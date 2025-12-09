@@ -1,5 +1,6 @@
 package com.example.crud_backend.controller;
 
+import org.springframework.util.StringUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.crud_backend.entity.User;
 import com.example.crud_backend.mapper.UserMapper;
@@ -23,6 +24,35 @@ public class UserController {
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody User loginUser) {
         Map<String, Object> result = new HashMap<>();
+
+        // --- 1. 新增：验证码校验逻辑 ---
+        String key = loginUser.getCaptchaKey();
+        String code = loginUser.getCaptchaCode();
+
+        if (!StringUtils.hasText(key) || !StringUtils.hasText(code)) {
+            result.put("code", 400);
+            result.put("msg", "请输入验证码");
+            return result;
+        }
+
+        // 去 Redis 查真正的答案
+        String realCode = redisTemplate.opsForValue().get("captcha:" + key);
+
+        if (realCode == null) {
+            result.put("code", 400);
+            result.put("msg", "验证码已过期，请刷新");
+            return result;
+        }
+
+        // 忽略大小写比较
+        if (!realCode.equalsIgnoreCase(code)) {
+            result.put("code", 400);
+            result.put("msg", "验证码错误");
+            return result;
+        }
+
+        // 验证通过后，为了安全，建议立刻删除 Redis 里的这个 key (防止重复使用)
+        redisTemplate.delete("captcha:" + key);
 
         // 1. 查询数据库
         User dbUser = userMapper.selectOne(new LambdaQueryWrapper<User>()
