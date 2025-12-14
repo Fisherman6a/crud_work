@@ -13,6 +13,8 @@ public class User {
     private String password;
     private String role; // "ADMIN" 或 "USER"
 
+    private String relatedId;
+    
     @TableField(exist = false)
     private String captchaKey; // 验证码的 Key
 

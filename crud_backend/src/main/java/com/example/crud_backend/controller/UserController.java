@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,13 +64,14 @@ public class UserController {
             // 2. 生成 Token
             String token = UUID.randomUUID().toString();
             // 3. 存入 Redis (Key: token, Value: role, 过期时间 30分钟)
-            redisTemplate.opsForValue().set("token:" + token, dbUser.getRole());
+            redisTemplate.opsForValue().set("token:" + token, dbUser.getRole(), 30, TimeUnit.MINUTES);
 
             result.put("code", 200);
             result.put("msg", "登录成功");
             result.put("token", token);
             result.put("role", dbUser.getRole()); // 返回给前端用于控制界面
             result.put("username", dbUser.getUsername());
+            result.put("relatedId", dbUser.getRelatedId());
         } else {
             result.put("code", 401);
             result.put("msg", "用户名或密码错误");
