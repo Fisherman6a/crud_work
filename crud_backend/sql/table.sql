@@ -9,7 +9,6 @@ CREATE TABLE `t_user` (
 
 -- 初始化数据
 INSERT INTO t_user VALUES ('admin', '123456', 'ADMIN');
-
 INSERT INTO t_user VALUES ('user', '123456', 'USER');
 
 -- 2. 修改学生表 (将学号设为主键，或者保留ID但给学号加唯一索引)
@@ -32,6 +31,7 @@ CREATE TABLE `t_student` (
 ALTER TABLE t_user
 ADD COLUMN related_id VARCHAR(50) COMMENT '关联ID(学生ID或教师ID)';
 
+DROP TABLE IF EXISTS t_teacher;
 -- 2. 教师表
 CREATE TABLE t_teacher (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -48,6 +48,8 @@ CREATE TABLE t_course (
     credit INT COMMENT '学分'
 );
 
+
+DROP TABLE IF EXISTS t_course_schedule;
 -- 4. 课程排课/班级表 (核心表：解决"同一课程不同时间")
 -- 这里我们将时间抽象为：week_day (周几) 和 section (第几节)
 CREATE TABLE t_course_schedule (
@@ -74,3 +76,17 @@ CREATE TABLE t_student_course (
     score DECIMAL(5, 2) COMMENT '成绩',
     UNIQUE KEY uk_stu_schedule (student_id, schedule_id) -- 防止重复选同一门具体的课
 );
+
+
+-- 严格遵守你的规范，只添加课程资源表
+DROP TABLE IF EXISTS `t_course_resource`;
+
+CREATE TABLE `t_course_resource` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `course_id` BIGINT NOT NULL COMMENT '关联 t_course 的 id',
+    `resource_name` VARCHAR(255) DEFAULT NULL,
+    `resource_type` VARCHAR(50) COMMENT 'MP4, PDF',
+    `resource_url` VARCHAR(500) DEFAULT NULL,
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES t_course (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;

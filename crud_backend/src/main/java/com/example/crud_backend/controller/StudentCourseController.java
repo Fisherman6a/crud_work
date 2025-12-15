@@ -1,46 +1,104 @@
 package com.example.crud_backend.controller;
 
-import com.example.crud_backend.websocket.WebSocketServer;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.example.crud_backend.entity.CourseSchedule;
+import com.example.crud_backend.entity.StudentCourse;
+import com.example.crud_backend.mapper.CourseMapper;
+import com.example.crud_backend.mapper.CourseScheduleMapper;
+import com.example.crud_backend.mapper.StudentCourseMapper;
+import com.example.crud_backend.mapper.TeacherMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/student-course")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // 允许前端跨域调用
 public class StudentCourseController {
 
     @Autowired
-    private RabbitTemplate rabbitTemplate;
+    private StudentCourseMapper studentCourseMapper;
+    @Autowired
+    private CourseScheduleMapper scheduleMapper;
+    @Autowired
+    private CourseMapper courseMapper;
+    @Autowired
+    private TeacherMapper teacherMapper;
 
-    // 模拟选课
-    @PostMapping("/select")
-    public String selectCourse(@RequestBody Map<String, Object> params) {
-        String studentId = (String) params.get("studentId");
-        String courseName = (String) params.get("courseName");
-        String phoneNumber = (String) params.get("phoneNumber"); // 模拟从库里查出来的
+    // === 管理员功能 ===
 
-        // ... 执行选课数据库逻辑 (省略) ...
+    // 获取某个学生的详细课表（返回 List<Map>，无 Result 包装）
+    @GetMapping("/admin/list/{studentNumber}")
+    public List<Map<String, Object>> getStudentTimetable(@PathVariable String studentNumber) {
+        QueryWrapper<StudentCourse> scWrapper = new QueryWrapper<>();
+        scWrapper.eq("student_id", studentNumber);
+        List<StudentCourse> scList = studentCourseMapper.selectList(scWrapper);
 
-        // 1. 发送站内信 (WebSocket)
-        WebSocketServer.sendInfo(studentId, "选课成功通知：您已成功选择 " + courseName);
-
-        // 2. 发送短信 (RabbitMQ 异步解耦)
-        Map<String, String> smsMap = new HashMap<>();
-        smsMap.put("phone", phoneNumber);
-        smsMap.put("msg", "您好，您已成功选修课程：" + courseName);
-        rabbitTemplate.convertAndSend("sms.queue", smsMap);
-
-        return "选课成功";
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        for (StudentCourse sc : scList) {
+            CourseSchedule schedule = scheduleMapper.selectById(sc.getScheduleId());
+            if (schedule != null) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("studentCourseId", sc.getId());
+                map.put("scheduleId", schedule.getId());
+                map.put("weekDay", schedule.getWeekDay());
+                map.put("sectionStart", schedule.getSectionStart());
+                map.put("sectionEnd", schedule.getSectionEnd());
+                map.put("location", schedule.getLocation());
+                map.put("courseName", courseMapper.selectById(schedule.getCourseId()).getName());
+                map.put("teacherName", teacherMapper.selectById(schedule.getTeacherId()).getName());
+                resultList.add(map);
+            }
+        }
+        return resultList;
     }
 
-    // 获取课程日历
-    @GetMapping("/calendar")
-    public Object getCourseCalendar(@RequestParam String studentId) {
-        // ... 查询数据库返回该学生的课程时间表 ...
-        return "返回课程时间JSON数据";
+    // 管理员给学生选课
+    @PostMapping("/admin/add")
+    public ResponseEntity<String> addCourseAdmin(@RequestBody Map<String, Object> payload) {
+        String studentNumber = (String) payload.get("studentNumber");
+        Long scheduleId = Long.valueOf(payload.get("scheduleId").toString());
+
+        QueryWrapper<StudentCourse> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("student_id", studentNumber).eq("schedule_id", scheduleId);
+        if (studentCourseMapper.selectCount(queryWrapper) > 0) {
+            return ResponseEntity.badRequest().body("该课程已存在");
+        }
+
+        StudentCourse sc = new StudentCourse();
+        sc.setStudentId(studentNumber);
+        sc.setScheduleId(scheduleId);
+        studentCourseMapper.insert(sc);
+
+        // 更新人数
+        CourseSchedule schedule = scheduleMapper.selectById(scheduleId);
+        schedule.setCurrentCount(schedule.getCurrentCount() + 1);
+        scheduleMapper.updateById(schedule);
+
+        return ResponseEntity.ok("Success");
+    }
+
+    // 管理员移除课程
+    @PostMapping("/admin/remove")
+    public ResponseEntity<String> removeCourseAdmin(@RequestBody Map<String, Object> payload) {
+        String studentNumber = (String) payload.get("studentNumber");
+        Long scheduleId = Long.valueOf(payload.get("scheduleId").toString());
+
+        QueryWrapper<StudentCourse> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("student_id", studentNumber).eq("schedule_id", scheduleId);
+        studentCourseMapper.delete(queryWrapper);
+
+        // 更新人数
+        CourseSchedule schedule = scheduleMapper.selectById(scheduleId);
+        if (schedule.getCurrentCount() > 0) {
+            schedule.setCurrentCount(schedule.getCurrentCount() - 1);
+            scheduleMapper.updateById(schedule);
+        }
+        return ResponseEntity.ok("Success");
     }
 }
