@@ -27,7 +27,15 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import {
+    useMessage, NIcon,
+    // 👇 新增以下引入：
+    NSpace,
+    NText,
+    NButton,
+    NDropdown,
+    NAvatar
+} from 'naive-ui'
 import { LogOutOutline, PersonOutline } from '@vicons/ionicons5' // 需安装 @vicons/ionicons5
 
 const router = useRouter()
@@ -36,7 +44,7 @@ const message = useMessage()
 // 状态
 const username = localStorage.getItem('username') || 'User'
 const role = localStorage.getItem('role')
-const roleName = computed(() => role === 'admin' ? '管理员' : '学生')
+const roleName = computed(() => (role === 'admin' || role === 'ADMIN') ? '管理员' : '学生')
 
 // 模拟全局时间
 const currentTime = ref('2025-09-01 08:00:00')
@@ -57,7 +65,6 @@ function renderIcon(icon) {
 }
 
 import { h } from 'vue'
-import { NIcon } from 'naive-ui'
 
 const handleSelect = (key) => {
     if (key === 'logout') {

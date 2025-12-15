@@ -80,13 +80,32 @@ const handleLogin = async () => {
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('role', res.data.role)
       localStorage.setItem('username', res.data.username)
-      router.push('/student')
+      // 注意：后端返回的角色通常是大写 (ADMIN/USER)，前端判断需注意大小写
+
+      const role = res.data.role;
+      console.log('准备进行路由跳转，角色:', role); // 🔍 添加调试日志 1
+      if (role === 'ADMIN' || role === 'admin') {
+        console.log('正在跳转到 管理员端...');
+        router.push('/app/student') // 管理员默认跳学生管理
+      } else {
+        console.log('正在跳转到 学生端...');
+        router.push('/app/student-course') // 学生默认跳选课页面
+      }
     } else {
       message.error(res.data.msg || '登录失败')
       loadCaptcha() // 登录失败刷新验证码，防止暴力破解
     }
   } catch (err) {
-    message.error('连接服务器失败，请检查后端 Nacos/Redis 是否启动')
+    // message.error('连接服务器失败，请检查后端 Nacos/Redis 是否启动')
+    console.error("【登录异常捕获】:", err);
+
+    // 只有当它是真正的网络错误（axios错误）时，才提示连接失败
+    if (err.response || err.request) {
+      message.error('连接服务器失败，请检查后端/网络')
+    } else {
+      // 如果是代码逻辑错误（比如路由找不到），提示具体的 JS 错误
+      message.error('前端逻辑错误: ' + err.message)
+    }
   } finally {
     loading.value = false
   }

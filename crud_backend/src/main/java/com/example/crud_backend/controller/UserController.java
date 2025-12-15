@@ -64,7 +64,7 @@ public class UserController {
             // 2. 生成 Token
             String token = UUID.randomUUID().toString();
             // 3. 存入 Redis (Key: token, Value: role, 过期时间 30分钟)
-            redisTemplate.opsForValue().set("token:" + token, dbUser.getRole(), 30, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("token:" + token, dbUser.getRole());
 
             result.put("code", 200);
             result.put("msg", "登录成功");
