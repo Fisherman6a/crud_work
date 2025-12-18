@@ -38,12 +38,52 @@ public class TeacherController {
 
     // 3. 新增或更新
     @PostMapping("/save")
-    public boolean save(@RequestBody Teacher teacher) {
-        if (teacher.getId() == null) {
+    public Object save(@RequestBody java.util.Map<String, Object> request) {
+        // ID is now required for manual input
+        if (!request.containsKey("id") || request.get("id") == null) {
+            return createErrorResponse("教师ID不能为空");
+        }
+
+        Long teacherId = Long.valueOf(request.get("id").toString());
+
+        // Check if ID already exists
+        Teacher existing = teacherMapper.selectById(teacherId);
+
+        // 从前端获取 originalId（编辑模式下，originalId 就是当前记录的ID）
+        Long originalId = null;
+        if (request.containsKey("originalId") && request.get("originalId") != null) {
+            originalId = Long.valueOf(request.get("originalId").toString());
+        }
+
+        // 判断是否为新增模式：originalId 为 null 表示新增
+        boolean isAddMode = (originalId == null);
+
+        if (isAddMode && existing != null) {
+            // 新增模式下，如果ID已存在，拒绝
+            return createErrorResponse("教师ID " + teacherId + " 已存在，请使用其他ID");
+        }
+
+        // 构建 Teacher 对象
+        Teacher teacher = new Teacher();
+        teacher.setId(teacherId);
+        teacher.setName((String) request.get("name"));
+        teacher.setTitle((String) request.get("title"));
+        teacher.setPhone((String) request.get("phone"));
+
+        if (existing == null) {
+            // New teacher
             return teacherMapper.insert(teacher) > 0;
         } else {
+            // Update existing teacher
             return teacherMapper.updateById(teacher) > 0;
         }
+    }
+
+    private Object createErrorResponse(String message) {
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("success", false);
+        result.put("message", message);
+        return result;
     }
 
     // 4. 删除

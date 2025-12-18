@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 @TableName("t_teacher")
 public class Teacher {
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.INPUT)
     private Long id;
     private String name;
     private String title; // 职称

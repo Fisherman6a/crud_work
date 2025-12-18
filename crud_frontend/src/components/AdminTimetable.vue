@@ -1,98 +1,143 @@
 <template>
-    <div class="admin-timetable">
-        <n-card title="全校排课总表" style="margin-bottom: 16px">
-            <template #header-extra>
-                <n-button type="primary" size="small" @click="fetchData">刷新数据</n-button>
+    <div style="padding: 20px;">
+        <n-alert type="info" style="margin-bottom: 15px;">
+            管理员排课模式：请先在左上角选择一名学生，然后点击格子为其添加或删除课程。
+        </n-alert>
+
+        <n-space style="margin-bottom: 20px;" align="center">
+            <span>正在编辑学生：</span>
+            <n-select v-model:value="targetStudentId" filterable placeholder="输入姓名或学号搜索" :options="studentOptions"
+                :loading="loadingStudent" @search="handleSearchStudent" @update:value="loadSchedule"
+                style="width: 250px" remote />
+            <n-button @click="loadSchedule" :disabled="!targetStudentId">刷新课表</n-button>
+        </n-space>
+
+        <div class="timetable">
+            <div class="header"></div>
+            <div v-for="d in days" :key="d" class="header">{{ d }}</div>
+
+            <template v-for="slot in 5" :key="slot">
+                <div class="label">第{{ slot }}大节</div>
+                <div v-for="(day, dayIdx) in days" :key="dayIdx" class="cell" @click="handleCellClick(day, slot)">
+                    <div v-if="getCourse(day, slot)" class="course-block">
+                        <strong>{{ getCourse(day, slot).courseName }}</strong>
+                        <div>{{ getCourse(day, slot).teacherName }}</div>
+                    </div>
+                    <div v-else class="add-hint">+</div>
+                </div>
             </template>
-            
-            <n-alert type="info" style="margin-bottom: 12px">
-                管理员模式：点击空白处可排课，点击已有课程可删除/修改。
-            </n-alert>
-
-            <time-table 
-                :courses="allCourses" 
-                :editable="true" 
-                @cell-click="handleCellClick" 
-            />
-        </n-card>
-
-        <n-modal v-model:show="showModal">
-            <n-card style="width: 400px" title="排课设置">
-                <n-form>
-                    <n-form-item label="课程名称">
-                        <n-input v-model:value="form.courseName" />
-                    </n-form-item>
-                    <n-form-item label="上课地点">
-                        <n-input v-model:value="form.location" />
-                    </n-form-item>
-                    </n-form>
-                <template #action>
-                    <n-button type="primary" @click="submitSchedule">确认排课</n-button>
-                </template>
-            </n-card>
-        </n-modal>
+        </div>
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import TimeTable from './TimeTable.vue' // 假设 TimeTable.vue 在 views 目录下
-import { useMessage } from 'naive-ui'
+import { NAlert, NSpace, NSelect, NButton, useMessage } from 'naive-ui'
 import axios from 'axios'
 
 const message = useMessage()
-const allCourses = ref([])
-const showModal = ref(false)
-const form = ref({ courseName: '', location: '', weekDay: 1, sectionStart: 1 })
+const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const targetStudentId = ref(null)
+const studentOptions = ref([])
+const loadingStudent = ref(false)
+const scheduleData = ref([])
 
-// 1. 获取所有排课数据
-const fetchData = async () => {
+// 搜索学生
+const handleSearchStudent = async (query) => {
+    if (!query) return
+    loadingStudent.value = true
     try {
-        // 后端需要提供一个接口 GET /api/admin/schedule/list
-        // 这里先用模拟数据，防止报错
-        // const res = await axios.get('http://localhost:8080/api/admin/schedule/list')
-        // allCourses.value = res.data.data
-        
-        allCourses.value = [
-            { id: 1, week_day: 1, section_start: 1, section_end: 2, name: 'Java程序设计', location: 'C201' },
-            { id: 2, week_day: 3, section_start: 3, section_end: 4, name: '数据库原理', location: 'A105' }
-        ]
-        message.success('排课数据已更新')
-    } catch (e) {
-        message.error('数据加载失败')
-    }
+        const res = await axios.get(`http://localhost:8080/student/page?pageSize=20&name=${query}`)
+        if (res.data && res.data.records) {
+            studentOptions.value = res.data.records.map(s => ({
+                label: `${s.name} (${s.studentNumber})`,
+                value: s.studentNumber
+            }))
+        }
+    } finally { loadingStudent.value = false }
 }
 
-// 2. 处理单元格点击
-const handleCellClick = ({ day, section, course }) => {
-    if (course) {
-        if(confirm(`确认要删除 ${course.name} 的排课吗？`)) {
-            // 调用删除接口
-            message.success('模拟删除成功')
-            // fetchData()
+const loadSchedule = async () => {
+    if (!targetStudentId.value) return
+    const res = await axios.get(`http://localhost:8080/schedule/list?studentId=${targetStudentId.value}`)
+    scheduleData.value = res.data || []
+}
+
+const getCourse = (day, slot) => {
+    return scheduleData.value.find(c => c.day === day && c.slot === slot)
+}
+
+const handleCellClick = (day, slot) => {
+    if (!targetStudentId.value) return message.warning('请先选择一个学生')
+    const existing = getCourse(day, slot)
+    if (existing) {
+        if (confirm('要删除这节课吗？')) {
+            // 这里调用删除接口
+            message.info('触发删除逻辑')
         }
     } else {
-        // 空白处：新增排课
-        form.value.weekDay = day
-        form.value.sectionStart = section
-        showModal.value = true
+        message.info(`请在弹窗中选择课程加入 ${day} 第${slot}节`)
     }
-}
-
-const submitSchedule = () => {
-    // 调用新增接口 POST /api/admin/schedule
-    message.success(`已在周${form.value.weekDay}第${form.value.sectionStart}节添加 ${form.value.courseName}`)
-    showModal.value = false
-    // fetchData()
 }
 
 onMounted(() => {
-    fetchData()
+    handleSearchStudent(' ')
 })
 </script>
 
 <style scoped>
-.admin-timetable {
-    padding: 12px;
+.timetable {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    border: 1px solid #ddd;
+}
+
+.header,
+.label {
+    padding: 10px;
+    background: #f5f5f5;
+    text-align: center;
+    border-bottom: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    font-weight: bold;
+}
+
+.cell {
+    height: 100px;
+    border-right: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    position: relative;
+    cursor: pointer;
+}
+
+.cell:hover {
+    background: #fafafa;
+}
+
+/* 修复后的样式 */
+.add-hint {
+    display: none;
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: 50%;
+    /* 居中 */
+    transform: translateY(-50%);
+    /* 修正垂直居中 */
+    font-size: 24px;
+    color: #ccc;
+}
+
+.cell:hover .add-hint {
+    display: block;
+}
+
+.course-block {
+    background: #e6f7ff;
+    color: #1890ff;
+    height: 100%;
+    padding: 5px;
+    font-size: 12px;
+    overflow: hidden;
 }
 </style>

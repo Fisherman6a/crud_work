@@ -61,9 +61,15 @@ function renderIcon(icon) {
 const adminMenu = [
     { label: '学生管理', key: 'student', icon: renderIcon(PeopleOutline) },
     { label: '教师管理', key: 'teacher-manager', icon: renderIcon(IdCardOutline) },
-    { label: '课程资料', key: 'course-manager', icon: renderIcon(BookOutline) }, // 对应 CourseManager.vue
-    { label: '选课管理', key: 'selection-manage', icon: renderIcon(GridOutline) }, // 对应 SelectionManage.vue
-    { label: '排课总表', key: 'timetable', icon: renderIcon(CalendarOutline) }     // 对应 TimeTable.vue
+
+    // 原 selection-manage -> 现 "课程管理"
+    { label: '课程管理', key: 'selection-manage', icon: renderIcon(GridOutline) },
+
+    // 原 course-manager -> 现 "课程资料"
+    { label: '课程资料', key: 'course-manager', icon: renderIcon(BookOutline) },
+
+    // 原 timetable -> 现 "排课管理"
+    { label: '排课管理', key: 'timetable', icon: renderIcon(CalendarOutline) }
 ]
 
 // 学生菜单
