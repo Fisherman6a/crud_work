@@ -19,68 +19,48 @@
             </n-space>
         </n-card>
 
-        <!-- 左侧课程列表 + 右侧资源管理 -->
+        <!-- 左侧课程列表 + 右侧资源查看 -->
         <div class="content-container">
             <div class="left-panel">
-                <n-card title="课程列表" :bordered="false">
-                    <n-list hoverable clickable>
-                        <n-list-item
-                            v-for="course in courseList"
-                            :key="course.id"
-                            :class="{ 'active-course': currentCourse?.id === course.id }"
-                            @click="selectCourse(course)"
-                        >
-                            <n-thing>
-                                <template #header>
-                                    <n-text strong>{{ course.name }}</n-text>
-                                </template>
-                                <template #description>
-                                    <n-space size="small">
-                                        <n-tag size="small" type="info">{{ course.teacherName }}</n-tag>
-                                        <n-tag size="small" type="success">{{ course.credit }}学分</n-tag>
-                                    </n-space>
-                                </template>
-                            </n-thing>
-                        </n-list-item>
-                    </n-list>
+                <n-card title="我的课程" :bordered="false">
+                    <n-spin :show="loadingCourses">
+                        <n-empty v-if="courseList.length === 0" description="暂无选修课程">
+                            <template #icon>
+                                <n-icon :component="BookOutline" size="60" />
+                            </template>
+                        </n-empty>
+                        <n-list v-else hoverable clickable>
+                            <n-list-item
+                                v-for="course in courseList"
+                                :key="course.id"
+                                :class="{ 'active-course': currentCourse?.id === course.id }"
+                                @click="selectCourse(course)"
+                            >
+                                <n-thing>
+                                    <template #header>
+                                        <n-text strong>{{ course.name }}</n-text>
+                                    </template>
+                                    <template #description>
+                                        <n-space size="small">
+                                            <n-tag size="small" type="info">{{ course.teacherName }}</n-tag>
+                                            <n-tag size="small" type="success">{{ course.credit }}学分</n-tag>
+                                        </n-space>
+                                    </template>
+                                </n-thing>
+                            </n-list-item>
+                        </n-list>
+                    </n-spin>
                 </n-card>
             </div>
 
             <div class="right-panel">
                 <n-card v-if="currentCourse" :title="`${currentCourse.name} - 课程资源`" :bordered="false">
-                    <!-- 上传区域 -->
                     <n-space vertical :size="20">
-                        <n-upload
-                            multiple
-                            directory-dnd
-                            :action="`http://localhost:8080/resource/upload?courseId=${currentCourse.id}`"
-                            :headers="uploadHeaders"
-                            accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.mp3,.avi,.mov"
-                            @finish="handleUploadFinish"
-                            @error="handleUploadError"
-                        >
-                            <n-upload-dragger>
-                                <div style="margin-bottom: 12px">
-                                    <n-icon size="48" :depth="3">
-                                        <CloudUploadOutline />
-                                    </n-icon>
-                                </div>
-                                <n-text style="font-size: 16px">
-                                    点击或拖拽文件到此区域上传
-                                </n-text>
-                                <n-p depth="3" style="margin: 8px 0 0 0">
-                                    支持 Word、PDF、PPT、音视频文件
-                                </n-p>
-                            </n-upload-dragger>
-                        </n-upload>
-
-                        <n-divider />
-
                         <!-- 资源列表 -->
                         <div>
                             <n-space justify="space-between" align="center" style="margin-bottom: 12px">
-                                <n-text strong>已上传资源 ({{ resourceList.length }})</n-text>
-                                <n-button size="small" @click="loadResources">
+                                <n-text strong>课程资料 ({{ resourceList.length }})</n-text>
+                                <n-button size="small" @click="loadResources" :loading="loadingResources">
                                     <template #icon>
                                         <n-icon :component="RefreshOutline" />
                                     </template>
@@ -93,13 +73,14 @@
                                 :data="resourceList"
                                 :pagination="{ pageSize: 10 }"
                                 :bordered="false"
+                                :loading="loadingResources"
                                 striped
                             />
                         </div>
                     </n-space>
                 </n-card>
 
-                <n-empty v-else description="请从左侧选择一门课程" style="margin-top: 100px">
+                <n-empty v-else description="请从左侧选择一门课程查看资料" style="margin-top: 100px">
                     <template #icon>
                         <n-icon :component="DocumentTextOutline" size="80" />
                     </template>
@@ -107,46 +88,53 @@
             </div>
         </div>
 
-        <!-- 文件预览组件 -->
-        <FilePreview
-            v-model:show="showPreview"
-            :file="previewFile"
-        />
+        <!-- 预览弹窗 -->
+        <n-modal
+            v-model:show="showPreviewModal"
+            preset="card"
+            :title="previewTitle"
+            style="width: 80%; max-width: 1200px;"
+            :bordered="false"
+            :segmented="{ content: 'soft' }"
+        >
+            <div class="preview-container">
+                <iframe v-if="previewUrl" :src="previewUrl" frameborder="0" style="width: 100%; height: 600px;"></iframe>
+                <n-empty v-else description="无法预览此文件" />
+            </div>
+        </n-modal>
     </div>
 </template>
 
 <script setup>
 import { ref, h, onMounted } from 'vue'
 import {
-    NCard, NInput, NSpace, NList, NListItem, NThing, NText, NTag, NUpload,
-    NUploadDragger, NP, NDivider, NDataTable, NButton, NIcon, NEmpty,
-    useMessage, useDialog
+    NCard, NInput, NSpace, NList, NListItem, NThing, NText, NTag,
+    NDivider, NDataTable, NButton, NIcon, NEmpty, NSpin, NModal,
+    useMessage
 } from 'naive-ui'
 import {
-    SearchOutline, CloudUploadOutline, RefreshOutline, DocumentTextOutline,
-    EyeOutline, DownloadOutline, TrashOutline
+    SearchOutline, RefreshOutline, DocumentTextOutline, BookOutline,
+    EyeOutline, DownloadOutline
 } from '@vicons/ionicons5'
 import axios from 'axios'
-import FilePreview from '@/components/FilePreview.vue'
 
 const API_BASE = 'http://localhost:8080'
 const message = useMessage()
-const dialog = useDialog()
 
 // 状态管理
 const courseList = ref([])
 const currentCourse = ref(null)
 const resourceList = ref([])
 const searchKeyword = ref('')
-const showPreview = ref(false)
-const previewFile = ref(null)
+const showPreviewModal = ref(false)
+const previewUrl = ref('')
+const previewTitle = ref('')
+const loadingCourses = ref(false)
+const loadingResources = ref(false)
 
-// 上传请求头（如果需要token）
-const uploadHeaders = ref({
-    // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-})
+const studentId = localStorage.getItem('username') || '2021001'
 
-// 资源表格列定义
+// 资源表格列定义（学生版 - 无删除操作）
 const resourceColumns = [
     {
         title: '文件名',
@@ -178,13 +166,13 @@ const resourceColumns = [
         key: 'createTime',
         width: 180,
         render: (row) => {
-            return row.createTime ? new Date(row.createTime).toLocaleString() : '-'
+            return row.createTime ? new Date(row.createTime).toLocaleString('zh-CN') : '-'
         }
     },
     {
         title: '操作',
         key: 'actions',
-        width: 200,
+        width: 160,
         render: (row) => {
             return h(NSpace, null, {
                 default: () => [
@@ -202,14 +190,6 @@ const resourceColumns = [
                     }, {
                         default: () => '下载',
                         icon: () => h(NIcon, { component: DownloadOutline })
-                    }),
-                    h(NButton, {
-                        size: 'small',
-                        type: 'error',
-                        onClick: () => handleDelete(row)
-                    }, {
-                        default: () => '删除',
-                        icon: () => h(NIcon, { component: TrashOutline })
                     })
                 ]
             })
@@ -217,15 +197,41 @@ const resourceColumns = [
     }
 ]
 
-// 加载所有课程
+// 加载学生选修的课程
 const loadCourses = async () => {
+    loadingCourses.value = true
     try {
-        const res = await axios.get(`${API_BASE}/course/all`)
-        // 后端直接返回数组，不是 { data: [...] } 格式
-        courseList.value = res.data || []
+        // 获取学生选的所有课程
+        const res = await axios.get(`${API_BASE}/api/timetable/student/${studentId}`)
+        const schedules = res.data.data || []
+
+        console.log('✅ 学生选课列表:', schedules)
+
+        // 提取唯一的课程信息
+        const courseMap = new Map()
+        schedules.forEach(item => {
+            if (!courseMap.has(item.course_id)) {
+                courseMap.set(item.course_id, {
+                    id: item.course_id,
+                    name: item.course_name,
+                    teacherName: item.teacher_name,
+                    credit: item.credit
+                })
+            }
+        })
+
+        courseList.value = Array.from(courseMap.values())
+        console.log('✅ 课程列表:', courseList.value)
+
+        // 自动选择第一门课程
+        if (courseList.value.length > 0 && !currentCourse.value) {
+            await selectCourse(courseList.value[0])
+        }
     } catch (error) {
-        console.error('加载课程列表失败:', error)
-        message.error('加载课程列表失败')
+        console.error('❌ 加载课程列表失败:', error)
+        message.error('加载课程列表失败: ' + (error.message || ''))
+    } finally {
+        loadingCourses.value = false
     }
 }
 
@@ -239,37 +245,19 @@ const selectCourse = async (course) => {
 const loadResources = async () => {
     if (!currentCourse.value) return
 
+    loadingResources.value = true
     try {
-        // 后端接口是 /resource/list/{courseId}，返回直接数组
         const res = await axios.get(`${API_BASE}/resource/list/${currentCourse.value.id}`)
+        // 后端直接返回数组，不是 { data: [...] } 格式
         resourceList.value = res.data || []
-        console.log('加载资源成功:', resourceList.value.length, '个资源')
+        console.log('✅ 加载资源成功:', resourceList.value.length, '个资源')
     } catch (error) {
-        console.error('加载资源列表失败:', error)
+        console.error('❌ 加载资源列表失败:', error)
         message.error('加载资源列表失败')
+        resourceList.value = []
+    } finally {
+        loadingResources.value = false
     }
-}
-
-// 上传完成回调
-const handleUploadFinish = ({ event }) => {
-    try {
-        const response = JSON.parse(event.target.response)
-        console.log('上传响应:', response)
-        if (response.success) {
-            message.success('上传成功')
-            loadResources()
-        } else {
-            message.error(response.message || '上传失败')
-        }
-    } catch (error) {
-        console.error('解析上传响应失败:', error)
-        message.error('上传失败')
-    }
-}
-
-// 上传错误回调
-const handleUploadError = () => {
-    message.error('上传失败，请稍后重试')
 }
 
 // 全文搜索
@@ -298,14 +286,11 @@ const handleSearch = async () => {
 // 预览文件
 const handlePreview = async (file) => {
     try {
-        // 后端接口返回 { url, fileName, fileType }
         const res = await axios.get(`${API_BASE}/resource/preview/${file.id}`)
         if (res.data && res.data.url) {
-            previewFile.value = {
-                ...file,
-                previewUrl: res.data.url
-            }
-            showPreview.value = true
+            previewTitle.value = file.resourceName
+            previewUrl.value = res.data.url
+            showPreviewModal.value = true
         } else {
             message.error('获取预览链接失败')
         }
@@ -318,7 +303,6 @@ const handlePreview = async (file) => {
 // 下载文件
 const handleDownload = async (file) => {
     try {
-        // 使用预览链接也可以下载
         const res = await axios.get(`${API_BASE}/resource/preview/${file.id}`)
         if (res.data && res.data.url) {
             window.open(res.data.url, '_blank')
@@ -330,31 +314,6 @@ const handleDownload = async (file) => {
         console.error('下载失败:', error)
         message.error('下载失败')
     }
-}
-
-// 删除文件
-const handleDelete = (file) => {
-    dialog.warning({
-        title: '确认删除',
-        content: `确定要删除 "${file.resourceName}" 吗？此操作不可恢复。`,
-        positiveText: '删除',
-        negativeText: '取消',
-        onPositiveClick: async () => {
-            try {
-                // 后端接口是 DELETE /resource/{resourceId}，返回 { success: boolean }
-                const res = await axios.delete(`${API_BASE}/resource/${file.id}`)
-                if (res.data && res.data.success) {
-                    message.success('删除成功')
-                    loadResources()
-                } else {
-                    message.error('删除失败')
-                }
-            } catch (error) {
-                console.error('删除失败:', error)
-                message.error('删除失败')
-            }
-        }
-    })
 }
 
 // 初始化
@@ -398,7 +357,11 @@ onMounted(() => {
     background-color: rgba(24, 160, 88, 0.1);
 }
 
-:deep(.n-upload-trigger) {
+.preview-container {
     width: 100%;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 </style>

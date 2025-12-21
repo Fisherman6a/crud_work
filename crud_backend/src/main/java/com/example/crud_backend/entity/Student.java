@@ -18,5 +18,6 @@ public class Student implements Serializable {
     private String gender;
     private Integer age;
     private String className;
+    private String phone; // 手机号，用于发送短信通知
     private LocalDateTime createTime;
 }

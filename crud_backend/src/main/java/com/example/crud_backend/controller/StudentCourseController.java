@@ -46,6 +46,7 @@ public class StudentCourseController {
                 Map<String, Object> map = new HashMap<>();
                 map.put("studentCourseId", sc.getId());
                 map.put("scheduleId", schedule.getId());
+                map.put("courseId", schedule.getCourseId()); // 添加 courseId
                 map.put("weekDay", schedule.getWeekDay());
                 map.put("sectionStart", schedule.getSectionStart());
                 map.put("sectionEnd", schedule.getSectionEnd());

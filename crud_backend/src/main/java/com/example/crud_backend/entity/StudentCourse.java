@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("t_student_course")
 public class StudentCourse {
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)  // 使用雪花算法自动生成ID
     private Long id;
     private String studentId;
     private Long scheduleId;

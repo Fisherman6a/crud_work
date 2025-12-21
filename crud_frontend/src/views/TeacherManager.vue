@@ -52,10 +52,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, h } from 'vue'
-import {
-    NSpace, NInputGroup, NInput, NButton, NDataTable, NModal, NForm, NFormItem,
-    NSelect, NH2, NPagination, useMessage, NPopconfirm
-} from 'naive-ui'
+import { NSpace, NInputGroup, NInput, NButton, NDataTable, NModal, NForm, NFormItem, NH2, NInputNumber, NPagination, NSelect, useMessage, NPopconfirm } from 'naive-ui'
 import PageContainer from '../components/PageContainer.vue'
 import axios from 'axios'
 
@@ -80,7 +77,7 @@ const pagination = reactive({
 })
 
 const columns = [
-    { title: 'ID', key: 'id', width: 80 },
+    { title: 'ID', key: 'id', width: 120 },
     { title: '姓名', key: 'name' },
     { title: '职称', key: 'title' },
     { title: '联系电话', key: 'phone' },

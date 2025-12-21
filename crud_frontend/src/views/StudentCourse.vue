@@ -342,7 +342,7 @@ const isFull = (course) => {
 }
 
 const isSelected = (course) => {
-    return myCourses.value.some(c => c.scheduleId === course.id)
+    return myCourses.value.some(c => c.id === course.id)
 }
 
 // 日历相关
@@ -360,10 +360,26 @@ const getCoursesOn = (year, month, date) => {
 const loadCourses = async () => {
     loading.value = true
     try {
-        const res = await axios.get(`${API_BASE}/timetable/available`)
-        courses.value = res.data.data || []
+        const res = await axios.get(`${API_BASE}/api/timetable/available`)
+        // 映射后端snake_case到前端camelCase
+        courses.value = (res.data.data || []).map(item => ({
+            id: item.schedule_id,
+            name: item.course_name,
+            courseId: item.course_id,
+            teacherName: item.teacher_name,
+            weekDay: item.week_day,
+            sectionStart: item.section_start,
+            sectionEnd: item.section_end,
+            location: item.location,
+            maxCapacity: item.max_capacity,
+            currentCount: item.current_count,
+            credit: item.credit,
+            description: item.description
+        }))
+        console.log('✅ 加载课程成功:', courses.value.length, '门课程')
     } catch (error) {
-        message.error('加载课程列表失败')
+        console.error('❌ 加载课程失败:', error)
+        message.error('加载课程列表失败: ' + (error.message || ''))
     } finally {
         loading.value = false
     }
@@ -371,12 +387,25 @@ const loadCourses = async () => {
 
 const loadMyCourses = async () => {
     try {
-        const res = await axios.get(`${API_BASE}/student-course/my-courses`, {
-            params: { studentId: studentId.value }
-        })
-        myCourses.value = res.data.data || []
+        const res = await axios.get(`${API_BASE}/api/timetable/student/${studentId.value}`)
+        // 映射后端snake_case到前端camelCase
+        myCourses.value = (res.data.data || []).map(item => ({
+            id: item.schedule_id,
+            name: item.course_name,
+            courseId: item.course_id,
+            teacherName: item.teacher_name,
+            weekDay: item.week_day,
+            sectionStart: item.section_start,
+            sectionEnd: item.section_end,
+            location: item.location,
+            maxCapacity: item.max_capacity,
+            currentCount: item.current_count,
+            credit: item.credit,
+            description: item.description
+        }))
+        console.log('✅ 加载我的课程成功:', myCourses.value.length, '门课程')
     } catch (error) {
-        console.error('加载我的课程失败', error)
+        console.error('❌ 加载我的课程失败:', error)
     }
 }
 
@@ -403,7 +432,7 @@ const handleSelectCourse = async (course) => {
         negativeText: '取消',
         onPositiveClick: async () => {
             try {
-                const res = await axios.post(`${API_BASE}/timetable/select`, {
+                const res = await axios.post(`${API_BASE}/api/timetable/select`, {
                     studentId: studentId.value,
                     scheduleId: course.id
                 })
@@ -430,7 +459,7 @@ const handleDropCourse = async (course) => {
         negativeText: '取消',
         onPositiveClick: async () => {
             try {
-                const res = await axios.post(`${API_BASE}/timetable/drop`, {
+                const res = await axios.post(`${API_BASE}/api/timetable/drop`, {
                     studentId: studentId.value,
                     scheduleId: course.id
                 })
@@ -450,6 +479,8 @@ const handleDropCourse = async (course) => {
 
 // 初始化
 onMounted(() => {
+    console.log('🚀 StudentCourse组件已挂载')
+    console.log('👤 当前学生ID:', studentId.value)
     loadCourses()
     loadMyCourses()
 })
@@ -471,16 +502,18 @@ onMounted(() => {
 .courses-container {
     flex: 1;
     overflow-y: auto;
+    padding-top: 30px; /* 增加顶部间距,让卡片悬浮效果更明显 */
 }
 
 .course-card {
     height: 100%;
     transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* 默认阴影 */
 }
 
 .course-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(-8px); /* 增加悬浮高度 */
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15); /* 增强悬浮阴影 */
 }
 
 .selected-course {

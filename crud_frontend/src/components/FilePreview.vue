@@ -7,14 +7,6 @@
         :bordered="false"
         :segmented="{ content: 'soft' }"
     >
-        <template #header-extra>
-            <n-button text @click="handleClose">
-                <template #icon>
-                    <n-icon :component="CloseOutline" />
-                </template>
-            </n-button>
-        </template>
-
         <div class="preview-container">
             <!-- PDF预览 -->
             <div v-if="isPDF" class="pdf-preview">
@@ -109,7 +101,7 @@
 import { computed, watch, ref } from 'vue'
 import { NModal, NButton, NIcon, NResult, NSpace, useMessage } from 'naive-ui'
 import {
-    CloseOutline, DocumentTextOutline, MusicalNotesOutline,
+    DocumentTextOutline, MusicalNotesOutline,
     DownloadOutline, EyeOutline, WarningOutline
 } from '@vicons/ionicons5'
 
@@ -146,11 +138,6 @@ const modalWidth = computed(() => {
     if (isDocument.value) return '700px'
     return '90vw'
 })
-
-// 关闭Modal
-const handleClose = () => {
-    showModal.value = false
-}
 
 // 下载文件
 const handleDownload = () => {

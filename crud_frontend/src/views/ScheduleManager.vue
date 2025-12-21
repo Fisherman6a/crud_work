@@ -1,218 +1,614 @@
 <template>
-    <div class="page-container" style="padding: 20px;">
-
-        <n-alert :type="canEdit ? 'success' : 'warning'" style="margin-bottom: 15px">
-            <template #header>
-                {{ roleTitle }}
-            </template>
-            {{ statusText }}
-        </n-alert>
-
-        <n-space style="margin-bottom: 20px" align="center">
-            <span style="font-weight: bold;">当前查看学生：</span>
-            <n-select v-if="userRole === 'ADMIN'" v-model:value="currentStudentId" filterable placeholder="搜索/选择学生"
-                :options="studentOptions" @update:value="loadSchedule" style="width: 200px" />
-            <span v-else>{{ currentStudentName }} ({{ currentStudentId }})</span>
-
-            <n-button @click="loadSchedule">刷新课表</n-button>
-        </n-space>
-
-        <div class="schedule-grid">
-            <div class="grid-header"></div>
-            <div v-for="day in days" :key="day" class="grid-header">{{ day }}</div>
-
-            <template v-for="slot in 5" :key="slot">
-                <div class="grid-slot-label">第 {{ slot }} 大节</div>
-                <div v-for="(day, index) in days" :key="index" class="grid-cell"
-                    :class="{ 'has-course': getCourse(day, slot) }" @click="handleCellClick(day, slot)">
-                    <div v-if="getCourse(day, slot)" class="course-card">
-                        <strong>{{ getCourse(day, slot).courseName }}</strong>
-                        <br>
-                        <span style="font-size: 12px">{{ getCourse(day, slot).teacher }}</span>
-                    </div>
-                    <div v-else class="empty-cell-hint">
-                        <span v-if="canEdit">+</span>
-                    </div>
-                </div>
-            </template>
-        </div>
-
-        <n-modal v-model:show="showCourseSelect" preset="dialog" title="添加课程">
-            <n-list hoverable clickable>
-                <n-list-item v-for="course in availableCourses" :key="course.id" @click="confirmAddCourse(course)">
-                    <n-thing :title="course.name" :description="course.teacherName">
-                        <template #header-extra>
-                            <n-tag type="success">可选</n-tag>
+    <div class="schedule-page">
+        <n-card title="📅 排课管理" :bordered="false">
+            <template #header-extra>
+                <n-space>
+                    <n-button type="primary" @click="showAddModal = true">
+                        <template #icon>
+                            <n-icon :component="AddOutline" />
                         </template>
-                    </n-thing>
-                </n-list-item>
-            </n-list>
+                        新增排课
+                    </n-button>
+                    <n-button @click="loadSchedules">
+                        <template #icon>
+                            <n-icon :component="RefreshOutline" />
+                        </template>
+                        刷新
+                    </n-button>
+                </n-space>
+            </template>
+
+            <!-- 课表网格 -->
+            <div class="timetable-wrapper">
+                <table class="timetable">
+                    <thead>
+                        <tr>
+                            <th class="header-cell">节次/周数</th>
+                            <th v-for="day in weekDays" :key="day.value" class="header-cell">
+                                {{ day.label }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="section in sections" :key="section">
+                            <td class="section-label">第{{ section }}节</td>
+                            <td v-for="day in weekDays" :key="day.value"
+                                class="schedule-cell"
+                                @click="handleCellClick(day.value, section)">
+                                <div v-if="getCellSchedule(day.value, section)"
+                                     class="course-block"
+                                     :class="{
+                                         'is-start': isBlockStart(day.value, section),
+                                         'is-middle': isBlockMiddle(day.value, section),
+                                         'is-end': isBlockEnd(day.value, section)
+                                     }"
+                                     :style="getBlockStyle(day.value, section)">
+                                    <template v-if="isBlockStart(day.value, section)">
+                                        <div class="course-name">{{ getCellSchedule(day.value, section).courseName }}</div>
+                                        <div class="course-info">
+                                            <div class="course-code">({{ getCellSchedule(day.value, section).courseId }})</div>
+                                            <div class="teacher-name">({{ getCellSchedule(day.value, section).teacherName }})</div>
+                                        </div>
+                                        <div class="course-detail">
+                                            ({{ getCellSchedule(day.value, section).sectionStart }}-{{ getCellSchedule(day.value, section).sectionEnd }},{{ getCellSchedule(day.value, section).location }})
+                                        </div>
+                                    </template>
+                                </div>
+                                <div v-else class="empty-cell">
+                                    <n-icon :component="AddCircleOutline" class="add-icon" />
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </n-card>
+
+        <!-- 新增/编辑排课弹窗 -->
+        <n-modal v-model:show="showAddModal" preset="card" title="新增排课" style="width: 700px">
+            <n-form :model="scheduleForm" label-placement="left" label-width="100px">
+                <n-form-item label="选择课程">
+                    <n-select
+                        v-model:value="scheduleForm.courseId"
+                        :options="courseOptions"
+                        placeholder="请选择课程"
+                        filterable
+                        @update:value="onCourseChange"
+                    />
+                </n-form-item>
+
+                <n-form-item label="选择教师">
+                    <n-select
+                        v-model:value="scheduleForm.teacherId"
+                        :options="availableTeachers"
+                        placeholder="请选择任课教师"
+                        filterable
+                        :disabled="!scheduleForm.courseId"
+                    />
+                </n-form-item>
+
+                <n-form-item label="星期">
+                    <n-select
+                        v-model:value="scheduleForm.weekDay"
+                        :options="weekDays"
+                        placeholder="请选择星期"
+                    />
+                </n-form-item>
+
+                <n-form-item label="节次范围">
+                    <n-space>
+                        <n-input-number
+                            v-model:value="scheduleForm.sectionStart"
+                            :min="1"
+                            :max="13"
+                            placeholder="开始节"
+                            style="width: 120px"
+                        />
+                        <span>至</span>
+                        <n-input-number
+                            v-model:value="scheduleForm.sectionEnd"
+                            :min="scheduleForm.sectionStart || 1"
+                            :max="13"
+                            placeholder="结束节"
+                            style="width: 120px"
+                        />
+                    </n-space>
+                    <n-text depth="3" style="margin-top: 8px; display: block; font-size: 12px">
+                        连续多节课请设置范围，例如：1-2节、3-4节、1-3节（三节连上）
+                    </n-text>
+                </n-form-item>
+
+                <n-form-item label="上课地点">
+                    <n-input
+                        v-model:value="scheduleForm.location"
+                        placeholder="例如：1-16,临港-教208"
+                    />
+                </n-form-item>
+
+                <n-form-item label="学期">
+                    <n-input
+                        v-model:value="scheduleForm.semester"
+                        placeholder="例如：2025-1"
+                    />
+                </n-form-item>
+
+                <n-form-item label="最大容量">
+                    <n-input-number
+                        v-model:value="scheduleForm.maxCapacity"
+                        :min="1"
+                        placeholder="最大选课人数"
+                        style="width: 100%"
+                    />
+                </n-form-item>
+            </n-form>
+
+            <template #footer>
+                <n-space justify="end">
+                    <n-button @click="showAddModal = false">取消</n-button>
+                    <n-button type="primary" @click="handleSaveSchedule" :loading="saving">
+                        保存
+                    </n-button>
+                </n-space>
+            </template>
+        </n-modal>
+
+        <!-- 查看/编辑课程详情弹窗 -->
+        <n-modal v-model:show="showDetailModal" preset="card" title="课程详情" style="width: 600px">
+            <n-descriptions v-if="selectedSchedule" :column="2" bordered>
+                <n-descriptions-item label="课程名称">{{ selectedSchedule.courseName }}</n-descriptions-item>
+                <n-descriptions-item label="课程ID">{{ selectedSchedule.courseId }}</n-descriptions-item>
+                <n-descriptions-item label="授课教师">{{ selectedSchedule.teacherName }}</n-descriptions-item>
+                <n-descriptions-item label="教师ID">{{ selectedSchedule.teacherId }}</n-descriptions-item>
+                <n-descriptions-item label="上课时间">
+                    {{ getWeekDayLabel(selectedSchedule.weekDay) }} 第{{ selectedSchedule.sectionStart }}-{{ selectedSchedule.sectionEnd }}节
+                </n-descriptions-item>
+                <n-descriptions-item label="上课地点">{{ selectedSchedule.location }}</n-descriptions-item>
+                <n-descriptions-item label="学期">{{ selectedSchedule.semester }}</n-descriptions-item>
+                <n-descriptions-item label="容量">
+                    {{ selectedSchedule.currentCount || 0 }}/{{ selectedSchedule.maxCapacity }}
+                </n-descriptions-item>
+            </n-descriptions>
+
+            <template #footer>
+                <n-space justify="end">
+                    <n-button @click="showDetailModal = false">关闭</n-button>
+                    <n-button type="error" @click="handleDeleteSchedule" :loading="deleting">
+                        删除排课
+                    </n-button>
+                </n-space>
+            </template>
         </n-modal>
     </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { NAlert, NSpace, NSelect, NButton, NModal, NList, NListItem, NThing, NTag, useMessage } from 'naive-ui'
+import {
+    NCard, NButton, NSpace, NIcon, NModal, NForm, NFormItem, NSelect,
+    NInput, NInputNumber, NText, NDescriptions, NDescriptionsItem,
+    useMessage, useDialog
+} from 'naive-ui'
+import {
+    AddOutline, RefreshOutline, AddCircleOutline
+} from '@vicons/ionicons5'
 import axios from 'axios'
 
+const API_BASE = 'http://localhost:8080'
 const message = useMessage()
+const dialog = useDialog()
 
-// --- 状态数据 ---
-const userRole = localStorage.getItem('role') || 'STUDENT' // ADMIN 或 STUDENT
-const currentStudentId = ref('')
-const currentStudentName = ref('我自己')
-const scheduleData = ref([]) // 存储已选课程
-const showCourseSelect = ref(false)
-const targetSlot = ref({ day: '', slot: 0 }) // 记录当前点击的格子
-const studentOptions = ref([]) // 管理员搜索学生用
-const availableCourses = ref([]) // 弹窗里的备选课程
+// 状态
+const schedules = ref([])
+const courses = ref([])
+const teachers = ref([])
+const showAddModal = ref(false)
+const showDetailModal = ref(false)
+const saving = ref(false)
+const deleting = ref(false)
+const selectedSchedule = ref(null)
 
-const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+// 星期配置
+const weekDays = [
+    { label: '星期一', value: 1 },
+    { label: '星期二', value: 2 },
+    { label: '星期三', value: 3 },
+    { label: '星期四', value: 4 },
+    { label: '星期五', value: 5 },
+    { label: '星期六', value: 6 },
+    { label: '星期日', value: 7 }
+]
 
-// --- 权限逻辑 (按照你的要求) ---
-// 模拟服务器时间配置，实际应从后端获取接口 /system/time
-const systemConfig = ref({
-    currentTime: new Date().getTime(),
-    openStart: new Date('2025-09-01 00:00:00').getTime(),
-    openEnd: new Date('2025-09-10 00:00:00').getTime()
+// 节次配置（1-13节，支持最多13节课）
+const sections = Array.from({ length: 13 }, (_, i) => i + 1)
+
+// 表单数据
+const scheduleForm = ref({
+    courseId: null,
+    teacherId: null,
+    weekDay: null,
+    sectionStart: null,
+    sectionEnd: null,
+    location: '',
+    semester: '2025-1',
+    maxCapacity: 50,
+    currentCount: 0
 })
 
-const canEdit = computed(() => {
-    if (userRole === 'ADMIN') return true
-    // 学生：判断时间
-    const now = systemConfig.value.currentTime
-    return now >= systemConfig.value.openStart && now <= systemConfig.value.openEnd
+// 课程选项
+const courseOptions = computed(() => {
+    return courses.value.map(c => ({
+        label: `${c.name} (ID: ${c.id})`,
+        value: c.id
+    }))
 })
 
-const roleTitle = computed(() => userRole === 'ADMIN' ? '管理员模式' : '学生选课系统')
-const statusText = computed(() => {
-    if (userRole === 'ADMIN') return '拥有最高权限，点击任意格子即可修改/删除课程。'
-    return canEdit.value ? '当前是选课开放时间，您可以点击空白格子选课。' : '当前不在选课时间内，仅供查看。'
+// 可选教师（根据选中的课程动态过滤）
+const availableTeachers = computed(() => {
+    if (!scheduleForm.value.courseId) return []
+
+    const selectedCourse = courses.value.find(c => c.id === scheduleForm.value.courseId)
+    if (!selectedCourse || !selectedCourse.teachers) return []
+
+    return selectedCourse.teachers.map(t => ({
+        label: `${t.name} (${t.title || '教师'})`,
+        value: t.id
+    }))
 })
 
-// --- 方法 ---
-
-// 获取格子里的课程
-const getCourse = (day, slot) => {
-    return scheduleData.value.find(c => c.day === day && c.slot === slot)
+// 获取星期标签
+const getWeekDayLabel = (value) => {
+    const day = weekDays.find(d => d.value === value)
+    return day ? day.label : ''
 }
 
-// 点击格子
-const handleCellClick = (day, slot) => {
-    if (!canEdit.value) {
-        message.warning('当前无法编辑！')
+// 获取某个单元格的排课信息
+const getCellSchedule = (weekDay, section) => {
+    return schedules.value.find(s =>
+        s.weekDay === weekDay &&
+        section >= s.sectionStart &&
+        section <= s.sectionEnd
+    )
+}
+
+// 判断是否是课程块的开始节
+const isBlockStart = (weekDay, section) => {
+    const schedule = getCellSchedule(weekDay, section)
+    return schedule && schedule.sectionStart === section
+}
+
+// 判断是否是课程块的中间节
+const isBlockMiddle = (weekDay, section) => {
+    const schedule = getCellSchedule(weekDay, section)
+    return schedule && section > schedule.sectionStart && section < schedule.sectionEnd
+}
+
+// 判断是否是课程块的结束节
+const isBlockEnd = (weekDay, section) => {
+    const schedule = getCellSchedule(weekDay, section)
+    return schedule && schedule.sectionEnd === section
+}
+
+// 获取课程块样式
+const getBlockStyle = (weekDay, section) => {
+    const schedule = getCellSchedule(weekDay, section)
+    if (!schedule) return {}
+
+    const spanSections = schedule.sectionEnd - schedule.sectionStart + 1
+
+    // 计算颜色（根据课程ID生成不同颜色）
+    const colors = [
+        '#b3d8ff', '#ffd8b3', '#d8ffb3', '#ffb3d8',
+        '#d8b3ff', '#b3fff0', '#fff0b3', '#ffb3b3'
+    ]
+    const colorIndex = schedule.courseId % colors.length
+    const bgColor = colors[colorIndex]
+
+    // 如果是起始节，计算跨越高度（60px单元格高度 + 1px边框）
+    if (isBlockStart(weekDay, section)) {
+        const cellHeight = 60 // 单元格高度
+        const borderWidth = 1 // 边框宽度
+        const totalHeight = spanSections * cellHeight + (spanSections - 1) * borderWidth
+
+        return {
+            backgroundColor: bgColor,
+            height: `${totalHeight}px`,
+            display: 'flex'
+        }
+    }
+
+    // 中间和结束节不显示
+    return {
+        display: 'none'
+    }
+}
+
+// 点击单元格
+const handleCellClick = (weekDay, section) => {
+    const existing = getCellSchedule(weekDay, section)
+
+    console.log('点击单元格:', { weekDay, section, existing, coursesCount: courses.value.length })
+
+    if (existing) {
+        // 已有排课，显示详情
+        selectedSchedule.value = existing
+        showDetailModal.value = true
+    } else {
+        // 空白格子，新增排课
+        scheduleForm.value = {
+            courseId: null,
+            teacherId: null,
+            weekDay: weekDay,
+            sectionStart: section,
+            sectionEnd: section,
+            location: '',
+            semester: '2025-1',
+            maxCapacity: 50,
+            currentCount: 0
+        }
+        showAddModal.value = true
+        console.log('打开新增排课弹窗')
+    }
+}
+
+// 课程改变时，重置教师选择
+const onCourseChange = () => {
+    scheduleForm.value.teacherId = null
+}
+
+// 加载所有排课
+const loadSchedules = async () => {
+    try {
+        const res = await axios.get(`${API_BASE}/schedule/listDetailed`)
+        schedules.value = res.data
+    } catch (error) {
+        message.error('加载排课失败')
+    }
+}
+
+// 加载所有课程（带教师信息）
+const loadCourses = async () => {
+    try {
+        const res = await axios.get(`${API_BASE}/course/page`, {
+            params: { pageNum: 1, pageSize: 1000 }
+        })
+        courses.value = res.data.records || []
+        console.log('加载课程成功:', courses.value.length, '门课程', courses.value)
+    } catch (error) {
+        console.error('加载课程失败:', error)
+        message.error('加载课程失败')
+    }
+}
+
+// 加载所有教师
+const loadTeachers = async () => {
+    try {
+        const res = await axios.get(`${API_BASE}/teacher/list`)
+        teachers.value = res.data
+    } catch (error) {
+        message.error('加载教师失败')
+    }
+}
+
+// 保存排课
+const handleSaveSchedule = async () => {
+    // 验证
+    if (!scheduleForm.value.courseId) {
+        message.warning('请选择课程')
+        return
+    }
+    if (!scheduleForm.value.teacherId) {
+        message.warning('请选择教师')
+        return
+    }
+    if (!scheduleForm.value.weekDay) {
+        message.warning('请选择星期')
+        return
+    }
+    if (!scheduleForm.value.sectionStart || !scheduleForm.value.sectionEnd) {
+        message.warning('请设置节次范围')
+        return
+    }
+    if (scheduleForm.value.sectionStart > scheduleForm.value.sectionEnd) {
+        message.warning('开始节次不能大于结束节次')
         return
     }
 
-    const existing = getCourse(day, slot)
-    if (existing) {
-        // 已有课程 -> 删除逻辑
-        if (confirm(`确定要退选 ${existing.courseName} 吗？`)) {
-            // 调用退选接口
-            axios.post('http://localhost:8080/schedule/remove', { id: existing.id }).then(() => {
-                message.success('退选成功'); loadSchedule();
-            })
+    // 检查时间冲突
+    const hasConflict = schedules.value.some(s => {
+        if (s.weekDay !== scheduleForm.value.weekDay) return false
+
+        // 检查节次是否重叠
+        return !(scheduleForm.value.sectionEnd < s.sectionStart ||
+                 scheduleForm.value.sectionStart > s.sectionEnd)
+    })
+
+    if (hasConflict) {
+        message.error('该时间段已有排课，请选择其他时间')
+        return
+    }
+
+    saving.value = true
+    try {
+        // 构建请求数据，移除 currentCount（由后端管理）
+        const requestData = {
+            courseId: scheduleForm.value.courseId,
+            teacherId: scheduleForm.value.teacherId,
+            weekDay: scheduleForm.value.weekDay,
+            sectionStart: scheduleForm.value.sectionStart,
+            sectionEnd: scheduleForm.value.sectionEnd,
+            location: scheduleForm.value.location,
+            semester: scheduleForm.value.semester,
+            maxCapacity: scheduleForm.value.maxCapacity
         }
-    } else {
-        // 空白 -> 添加逻辑
-        targetSlot.value = { day, slot }
-        loadAvailableCourses() // 加载可选课程列表
-        showCourseSelect.value = true
+        console.log('提交排课数据:', requestData)
+        await axios.post(`${API_BASE}/schedule/save`, requestData)
+        message.success('排课成功')
+        showAddModal.value = false
+        await loadSchedules()
+    } catch (error) {
+        console.error('排课失败详情:', error.response?.data || error.message)
+        message.error('排课失败: ' + (error.response?.data?.message || error.message))
+    } finally {
+        saving.value = false
     }
 }
 
-// 确认选课
-const confirmAddCourse = async (course) => {
-    try {
-        await axios.post('http://localhost:8080/schedule/add', {
-            studentId: currentStudentId.value,
-            courseId: course.id,
-            day: targetSlot.value.day,
-            slot: targetSlot.value.slot
-        })
-        message.success('选课成功')
-        showCourseSelect.value = false
-        loadSchedule()
-    } catch (e) { message.error('冲突或失败') }
-}
-
-const loadSchedule = async () => {
-    // 调用后端获取某学生的课表
-    if (!currentStudentId.value) return;
-    const res = await axios.get(`http://localhost:8080/schedule/list?studentId=${currentStudentId.value}`)
-    scheduleData.value = res.data.data
-}
-
-const loadAvailableCourses = async () => {
-    // 获取所有课程供选择
-    const res = await axios.get('http://localhost:8080/course/all')
-    availableCourses.value = res.data.data
+// 删除排课
+const handleDeleteSchedule = () => {
+    dialog.warning({
+        title: '确认删除',
+        content: `确定要删除《${selectedSchedule.value.courseName}》的排课吗？`,
+        positiveText: '确定',
+        negativeText: '取消',
+        onPositiveClick: async () => {
+            deleting.value = true
+            try {
+                await axios.delete(`${API_BASE}/schedule/${selectedSchedule.value.id}`)
+                message.success('删除成功')
+                showDetailModal.value = false
+                await loadSchedules()
+            } catch (error) {
+                message.error('删除失败')
+            } finally {
+                deleting.value = false
+            }
+        }
+    })
 }
 
 // 初始化
 onMounted(() => {
-    // 如果是学生，自动填入自己的ID
-    if (userRole !== 'ADMIN') {
-        const user = JSON.parse(localStorage.getItem('user') || '{}')
-        currentStudentId.value = user.studentId
-        loadSchedule()
-    } else {
-        // 管理员：加载学生列表供搜索
-        // axios.get('/student/all').then(...)
-    }
+    loadSchedules()
+    loadCourses()
+    loadTeachers()
 })
 </script>
 
 <style scoped>
-/* 简单的 CSS Grid 布局课表 */
-.schedule-grid {
-    display: grid;
-    grid-template-columns: 80px repeat(7, 1fr);
-    gap: 2px;
-    background-color: #eee;
+.schedule-page {
+    padding: 20px;
+}
+
+.timetable-wrapper {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+.timetable {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-cell {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-weight: bold;
     border: 1px solid #ddd;
 }
 
-.grid-header,
-.grid-slot-label {
+.section-label {
     background: #f5f7fa;
     padding: 10px;
     text-align: center;
     font-weight: bold;
+    border: 1px solid #ddd;
+    width: 100px;
+    position: relative;
 }
 
-.grid-cell {
-    background: #fff;
-    min-height: 100px;
-    padding: 5px;
+.schedule-cell {
+    border: 1px solid #ddd;
+    padding: 0;
+    height: 60px;
+    vertical-align: top;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.2s;
+    position: relative;
+    overflow: visible; /* 允许内容溢出 */
+}
+
+.schedule-cell:hover {
+    background-color: #f9f9f9;
+}
+
+.course-block {
+    width: calc(100% - 2px); /* 减去边框 */
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.4;
+    position: absolute;
+    top: 1px; /* 从边框内侧开始 */
+    left: 1px;
+    z-index: 10; /* 确保在上层 */
+    pointer-events: none; /* 让点击事件穿透到单元格 */
+}
+
+.course-block.is-start {
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+
+.course-block.is-end {
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.course-block.is-middle {
+    border-radius: 0;
+}
+
+.course-name {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.course-info {
+    margin: 4px 0;
+}
+
+.course-code,
+.teacher-name {
+    font-size: 11px;
+    color: #666;
+    margin: 2px 0;
+}
+
+.course-detail {
+    font-size: 10px;
+    color: #999;
+    margin-top: 4px;
+}
+
+.empty-cell {
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #ddd;
 }
 
-.grid-cell:hover {
-    background: #f9f9f9;
+.add-icon {
+    font-size: 24px;
+    opacity: 0;
+    transition: opacity 0.2s;
 }
 
-.course-card {
-    background-color: #e1f3d8;
+.schedule-cell:hover .add-icon {
+    opacity: 1;
     color: #18a058;
-    padding: 5px;
-    border-radius: 4px;
-    width: 100%;
-    text-align: center;
-}
-
-.empty-cell-hint {
-    color: #ccc;
-    font-size: 20px;
-    display: none;
-}
-
-.grid-cell:hover .empty-cell-hint {
-    display: block;
 }
 </style>

@@ -3,14 +3,19 @@
 <mapper namespace="com.example.crud_backend.mapper.TimetableMapper">
 
     <select id="selectTimetableByStudentId" resultType="java.util.Map">
-        SELECT 
+        SELECT
             sc.id as selection_id,
+            s.id as schedule_id,
+            s.course_id,
             s.week_day,
             s.section_start,
             s.section_end,
             s.location,
+            s.current_count,
+            s.max_capacity,
             c.name as course_name,
             c.credit,
+            c.description,
             t.name as teacher_name
         FROM t_student_course sc
         JOIN t_course_schedule s ON sc.schedule_id = s.id
@@ -20,8 +25,9 @@
     </select>
 
     <select id="selectAllScheduleDetails" resultType="java.util.Map">
-        SELECT 
+        SELECT
             s.id as schedule_id,
+            s.course_id,
             s.week_day,
             s.section_start,
             s.section_end,
@@ -29,6 +35,7 @@
             s.current_count,
             s.max_capacity,
             c.name as course_name,
+            c.credit,
             c.description,
             t.name as teacher_name
         FROM t_course_schedule s

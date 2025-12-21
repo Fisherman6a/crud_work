@@ -43,7 +43,9 @@ import {
     PeopleOutline,
     CalendarOutline,
     GridOutline,
-    IdCardOutline // 推荐引入一个新图标，或者复用其他的
+    IdCardOutline,
+    TimeOutline, // 添加一个新图标用于学生排课
+    FolderOpenOutline // 课程资料图标
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -68,14 +70,18 @@ const adminMenu = [
     // 原 course-manager -> 现 "课程资料"
     { label: '课程资料', key: 'course-manager', icon: renderIcon(BookOutline) },
 
-    // 原 timetable -> 现 "排课管理"
-    { label: '排课管理', key: 'timetable', icon: renderIcon(CalendarOutline) }
+    // 新增：排课管理（课程排课系统）
+    { label: '排课管理', key: 'schedule-manager', icon: renderIcon(CalendarOutline) },
+
+    // 原 timetable -> 现 "学生排课"（为学生安排课程）
+    { label: '学生排课', key: 'timetable', icon: renderIcon(TimeOutline) }
 ]
 
 // 学生菜单
 const studentMenu = [
     { label: '我的选课', key: 'student-course', icon: renderIcon(BookOutline) },   // 对应 StudentCourse.vue
-    { label: '课程表', key: 'my-timetable', icon: renderIcon(CalendarOutline) }
+    { label: '课程表', key: 'my-timetable', icon: renderIcon(CalendarOutline) },
+    { label: '课程资料', key: 'student-materials', icon: renderIcon(FolderOpenOutline) }
 ]
 
 const menuOptions = computed(() => (role === 'admin' || role === 'ADMIN') ? adminMenu : studentMenu)

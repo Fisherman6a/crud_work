@@ -37,8 +37,8 @@
                     <n-input v-model:value="form.description" type="textarea" placeholder="请输入课程描述" :rows="3" />
                 </n-form-item>
                 <n-form-item label="任课老师" path="teacherIds">
-                    <n-select v-model:value="form.teacherIds" :options="teacherOptions" multiple placeholder="选择任课老师（可多选）"
-                        clearable filterable />
+                    <n-select v-model:value="form.teacherIds" :options="teacherOptions" multiple
+                        placeholder="选择任课老师（可多选）" clearable filterable />
                 </n-form-item>
                 <n-form-item label="学分" path="credit">
                     <n-input-number v-model:value="form.credit" :min="0" :max="10" placeholder="请输入学分"
@@ -103,7 +103,7 @@ const API_URL = 'http://localhost:8080/course'
 
 // 列定义
 const columns = [
-    { title: '课程ID', key: 'id', width: 80 },
+    { title: '课程ID', key: 'id', width: 120 },
     { title: '课程名称', key: 'name', width: 150 },
     { title: '课程描述', key: 'description', ellipsis: { tooltip: true } },
     {
@@ -271,7 +271,7 @@ const handleSubmit = async () => {
         if (res.data.success) {
             message.success('保存成功')
             showModal.value = false
-            loadData()
+            await loadData()
         } else {
             message.error(res.data.message || '保存失败')
         }
@@ -286,7 +286,7 @@ const handleDelete = async (id) => {
         const res = await axios.delete(`${API_URL}/${id}`)
         if (res.data === true) {
             message.success('已删除')
-            loadData()
+            await loadData()
         } else {
             message.error('删除失败')
         }
