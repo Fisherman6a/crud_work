@@ -17,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/timetable")
-@CrossOrigin(origins = "*")
 public class TimetableController {
 
     @Autowired

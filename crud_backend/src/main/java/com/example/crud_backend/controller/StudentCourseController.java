@@ -18,7 +18,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/student-course")
-@CrossOrigin(origins = "*") // 允许前端跨域调用
 public class StudentCourseController {
 
     @Autowired

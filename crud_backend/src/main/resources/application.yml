@@ -5,6 +5,12 @@ spring:
   application:
     name: suep-student-service # 服务名，Nacos会用这个名字注册
 
+  # --- 文件上传配置 ---
+  servlet:
+    multipart:
+      max-file-size: 500MB # 单个文件最大大小
+      max-request-size: 500MB # 整个请求最大大小
+
   # --- MySQL 配置 (连 Windows 本机) ---
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -30,7 +36,7 @@ spring:
         file-extension: yaml # 配置文件格式
         import-check:
           enabled: false # 没找到配置不报错，开发方便
-  
+
   # --- Elasticsearch 配置 ---
   elasticsearch:
     uris: http://localhost:9200

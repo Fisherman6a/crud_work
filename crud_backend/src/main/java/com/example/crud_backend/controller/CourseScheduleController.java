@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/schedule")
-@CrossOrigin(origins = "*") // 允许前端跨域调用
 public class CourseScheduleController {
 
     @Autowired

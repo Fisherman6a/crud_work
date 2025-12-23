@@ -47,7 +47,28 @@
             </div>
 
             <div class="right-panel">
-                <n-card v-if="currentCourse" :title="`${currentCourse.name} - 课程资源`" :bordered="false">
+                <!-- 搜索结果模式 -->
+                <n-card v-if="isSearchMode" title="搜索结果" :bordered="false">
+                    <n-space vertical :size="20">
+                        <!-- 搜索结果列表（无上传区域）-->
+                        <div>
+                            <n-space justify="space-between" align="center" style="margin-bottom: 12px">
+                                <n-text strong>找到 {{ resourceList.length }} 条资料</n-text>
+                            </n-space>
+
+                            <n-data-table
+                                :columns="searchColumns"
+                                :data="resourceList"
+                                :pagination="{ pageSize: 10 }"
+                                :bordered="false"
+                                striped
+                            />
+                        </div>
+                    </n-space>
+                </n-card>
+
+                <!-- 课程模式（包含上传功能）-->
+                <n-card v-else-if="currentCourse" :title="`${currentCourse.name} - 课程资源`" :bordered="false">
                     <!-- 上传区域 -->
                     <n-space vertical :size="20">
                         <n-upload
@@ -99,6 +120,7 @@
                     </n-space>
                 </n-card>
 
+                <!-- 空状态 -->
                 <n-empty v-else description="请从左侧选择一门课程" style="margin-top: 100px">
                     <template #icon>
                         <n-icon :component="DocumentTextOutline" size="80" />
@@ -140,18 +162,26 @@ const resourceList = ref([])
 const searchKeyword = ref('')
 const showPreview = ref(false)
 const previewFile = ref(null)
+const isSearchMode = ref(false) // 标识是否处于搜索模式
 
 // 上传请求头（如果需要token）
 const uploadHeaders = ref({
     // 'Authorization': 'Bearer ' + localStorage.getItem('token')
 })
 
-// 资源表格列定义
+// 资源表格列定义（课程资源模式）
 const resourceColumns = [
     {
         title: '文件名',
         key: 'resourceName',
-        ellipsis: { tooltip: true }
+        ellipsis: { tooltip: true },
+        render: (row) => {
+            // 如果包含高亮标签，需要渲染HTML
+            if (row.resourceName && row.resourceName.includes('<em>')) {
+                return h('span', { innerHTML: row.resourceName })
+            }
+            return row.resourceName
+        }
     },
     {
         title: '文件类型',
@@ -217,6 +247,99 @@ const resourceColumns = [
     }
 ]
 
+// 搜索结果表格列定义（包含课程和教师信息）
+const searchColumns = [
+    {
+        title: '文件名',
+        key: 'resourceName',
+        ellipsis: { tooltip: true },
+        render: (row) => {
+            // 如果包含高亮标签，需要渲染HTML
+            if (row.resourceName && row.resourceName.includes('<em>')) {
+                return h('span', { innerHTML: row.resourceName })
+            }
+            return row.resourceName
+        }
+    },
+    {
+        title: '所属课程',
+        key: 'courseName',
+        width: 150,
+        ellipsis: { tooltip: true },
+        render: (row) => {
+            if (row.courseName && row.courseName.includes('<em>')) {
+                return h('span', { innerHTML: row.courseName })
+            }
+            return row.courseName || '-'
+        }
+    },
+    {
+        title: '任课教师',
+        key: 'teacherName',
+        width: 100,
+        render: (row) => {
+            if (row.teacherName && row.teacherName.includes('<em>')) {
+                return h('span', { innerHTML: row.teacherName })
+            }
+            return row.teacherName || '-'
+        }
+    },
+    {
+        title: '文件类型',
+        key: 'resourceType',
+        width: 100,
+        render: (row) => {
+            const typeMap = {
+                'pdf': { text: 'PDF', type: 'error' },
+                'doc': { text: 'Word', type: 'info' },
+                'docx': { text: 'Word', type: 'info' },
+                'ppt': { text: 'PPT', type: 'warning' },
+                'pptx': { text: 'PPT', type: 'warning' },
+                'mp4': { text: '视频', type: 'success' },
+                'mp3': { text: '音频', type: 'success' },
+                'avi': { text: '视频', type: 'success' },
+                'mov': { text: '视频', type: 'success' }
+            }
+            const config = typeMap[row.resourceType?.toLowerCase()] || { text: row.resourceType, type: 'default' }
+            return h(NTag, { type: config.type, size: 'small' }, { default: () => config.text })
+        }
+    },
+    {
+        title: '操作',
+        key: 'actions',
+        width: 180,
+        render: (row) => {
+            return h(NSpace, null, {
+                default: () => [
+                    h(NButton, {
+                        size: 'small',
+                        type: 'primary',
+                        onClick: () => handlePreview(row)
+                    }, {
+                        default: () => '预览',
+                        icon: () => h(NIcon, { component: EyeOutline })
+                    }),
+                    h(NButton, {
+                        size: 'small',
+                        onClick: () => handleDownload(row)
+                    }, {
+                        default: () => '下载',
+                        icon: () => h(NIcon, { component: DownloadOutline })
+                    }),
+                    h(NButton, {
+                        size: 'small',
+                        type: 'error',
+                        onClick: () => handleDelete(row)
+                    }, {
+                        default: () => '删除',
+                        icon: () => h(NIcon, { component: TrashOutline })
+                    })
+                ]
+            })
+        }
+    }
+]
+
 // 加载所有课程
 const loadCourses = async () => {
     try {
@@ -232,6 +355,7 @@ const loadCourses = async () => {
 // 选择课程
 const selectCourse = async (course) => {
     currentCourse.value = course
+    isSearchMode.value = false // 退出搜索模式
     await loadResources()
 }
 
@@ -280,18 +404,33 @@ const handleSearch = async () => {
     }
 
     try {
-        const res = await axios.get(`${API_BASE}/course/search`, {
+        const res = await axios.get(`${API_BASE}/course/search-resources`, {
             params: { keyword: searchKeyword.value }
         })
 
         if (res.data.code === 200 && res.data.data) {
-            message.success(`找到 ${res.data.data.length} 条结果`)
-            // TODO: 展示搜索结果
+            // 进入搜索模式，清空当前选中的课程
+            isSearchMode.value = true
+            currentCourse.value = null
+
+            // 将搜索结果映射到资源列表，优先使用高亮字段
+            resourceList.value = res.data.data.map(item => ({
+                id: item.id,
+                resourceName: item.highlights?.resourceName || item.resourceName,
+                courseName: item.highlights?.courseName || item.courseName,
+                teacherName: item.highlights?.teacherName || item.teacherName,
+                resourceType: item.resourceType,
+                createTime: item.createTime,
+                courseId: item.courseId,
+                score: item.score
+            }))
+
+            message.success(`找到 ${res.data.total} 条相关资料`)
         } else {
             message.info('未找到相关资源')
         }
     } catch (error) {
-        message.error('搜索失败')
+        message.error('搜索失败: ' + (error.response?.data?.msg || error.message))
     }
 }
 

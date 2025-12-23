@@ -3,7 +3,10 @@
     "allow": [
       "Bash(curl:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(mysql:*)",
+      "Bash(python:*)",
+      "Bash(mvn clean compile:*)"
     ]
   }
 }

@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/captcha")
-@CrossOrigin(origins = "*")
 public class CaptchaController {
 
     @Autowired

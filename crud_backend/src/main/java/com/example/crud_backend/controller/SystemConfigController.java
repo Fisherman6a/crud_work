@@ -6,7 +6,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/system")
-@CrossOrigin(origins = "*")
 public class SystemConfigController {
 
     // 模拟的选课时间配置（实际项目中应该存储在数据库或配置文件中）

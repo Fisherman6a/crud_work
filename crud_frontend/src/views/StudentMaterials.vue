@@ -139,7 +139,40 @@ const resourceColumns = [
     {
         title: '文件名',
         key: 'resourceName',
-        ellipsis: { tooltip: true }
+        ellipsis: { tooltip: true },
+        render: (row) => {
+            // 如果有高亮，显示HTML（搜索结果）
+            if (row.resourceName && row.resourceName.includes('<em')) {
+                return h('div', { innerHTML: row.resourceName })
+            }
+            return row.resourceName
+        }
+    },
+    {
+        title: '课程',
+        key: 'courseName',
+        width: 150,
+        render: (row) => {
+            if (!row.courseName) return '-'
+            // 如果有高亮，显示HTML
+            if (row.courseName.includes('<em')) {
+                return h('div', { innerHTML: row.courseName })
+            }
+            return row.courseName
+        }
+    },
+    {
+        title: '教师',
+        key: 'teacherName',
+        width: 100,
+        render: (row) => {
+            if (!row.teacherName) return '-'
+            // 如果有高亮，显示HTML
+            if (row.teacherName.includes('<em')) {
+                return h('div', { innerHTML: row.teacherName })
+            }
+            return row.teacherName
+        }
     },
     {
         title: '文件类型',
@@ -267,19 +300,36 @@ const handleSearch = async () => {
         return
     }
 
+    loadingResources.value = true
     try {
-        const res = await axios.get(`${API_BASE}/course/search`, {
+        const res = await axios.get(`${API_BASE}/course/search-resources`, {
             params: { keyword: searchKeyword.value }
         })
 
         if (res.data.code === 200 && res.data.data) {
-            message.success(`找到 ${res.data.data.length} 条结果`)
-            // TODO: 展示搜索结果
+            // 清空当前课程，显示搜索结果
+            currentCourse.value = null
+            resourceList.value = res.data.data.map(item => ({
+                id: item.id,
+                resourceName: item.highlights?.resourceName || item.resourceName,
+                courseName: item.highlights?.courseName || item.courseName,
+                teacherName: item.highlights?.teacherName || item.teacherName,
+                resourceType: item.resourceType,
+                createTime: item.createTime,
+                score: item.score // 相关度评分
+            }))
+
+            message.success(`找到 ${res.data.total} 条相关资料`)
         } else {
             message.info('未找到相关资源')
+            resourceList.value = []
         }
     } catch (error) {
-        message.error('搜索失败')
+        console.error('❌ 搜索失败:', error)
+        message.error('搜索失败: ' + (error.message || ''))
+        resourceList.value = []
+    } finally {
+        loadingResources.value = false
     }
 }
 
