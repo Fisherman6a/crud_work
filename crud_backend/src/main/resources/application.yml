@@ -31,6 +31,15 @@ spring:
       server-addr: localhost:8848
       discovery:
         server-addr: localhost:8848 # 注册中心地址
+        enabled: true # 启用服务注册发现
+        namespace: public # 命名空间
+        group: DEFAULT_GROUP # 分组
+        metadata: # 服务元数据（会显示在 Nacos Dashboard）
+          version: 1.0.0
+          env: dev
+          author: bao
+          description: 学生选课管理系统后端服务
+          components: MySQL,Redis,Elasticsearch,RabbitMQ,MinIO,WebSocket
       config:
         server-addr: localhost:8848 # 配置中心地址
         file-extension: yaml # 配置文件格式
@@ -52,9 +61,25 @@ spring:
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
 # --- MinIO 自定义配置 ---
 minio:
   endpoint: http://localhost:9000
   access-key: minioadmin
   secret-key: minioadmin
   bucket-name: course-files
+
+# --- Spring Boot Actuator 监控配置（仅用于 Nacos 健康检查）---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health # 只暴露健康检查端点给 Nacos
+  endpoint:
+    health:
+      show-details: always # Nacos 可以看到详细健康信息
+  health:
+    db:
+      enabled: true # 监控数据库
+    redis:
+      enabled: true # 监控 Redis

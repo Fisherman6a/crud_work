@@ -11,7 +11,6 @@ import com.example.crud_backend.dto.response.SearchResponse;
 import com.example.crud_backend.entity.Course;
 import com.example.crud_backend.entity.CourseTeacher;
 import com.example.crud_backend.entity.Teacher;
-import com.example.crud_backend.entity.es.CourseDoc;
 import com.example.crud_backend.mapper.CourseMapper;
 import com.example.crud_backend.mapper.CourseTeacherMapper;
 import com.example.crud_backend.mapper.TeacherMapper;
@@ -20,14 +19,8 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
-import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.http.Method;
-import org.apache.tika.Tika;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -39,9 +32,7 @@ import org.springframework.data.elasticsearch.core.query.highlight.HighlightFiel
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -58,13 +49,7 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
     private TeacherMapper teacherMapper;
 
     @Autowired(required = false)
-    private MinioClient minioClient;
-
-    @Autowired(required = false)
     private ElasticsearchOperations elasticsearchOperations;
-
-    @Value("${minio.bucket-name:course-files}")
-    private String bucketName;
 
     @Override
     public Page<CourseWithTeachers> getCoursesWithTeachers(int pageNum, int pageSize, String search) {
@@ -333,52 +318,6 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
             e.printStackTrace();
             return new SearchResponse(0L, new ArrayList<>());
         }
-    }
-
-    @Override
-    public String uploadCourseFile(MultipartFile file, Long courseId) throws Exception {
-        String fileName = UUID.randomUUID() + "-" + file.getOriginalFilename();
-
-        // 1. 上传到 MinIO
-        try (InputStream is = file.getInputStream()) {
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(bucketName)
-                            .object(fileName)
-                            .stream(is, file.getSize(), -1)
-                            .contentType(file.getContentType())
-                            .build());
-        }
-
-        // 2. 提取文件内容 (Tika)
-        Tika tika = new Tika();
-        String content = tika.parseToString(file.getInputStream());
-
-        // 3. 存入 Elasticsearch
-        CourseDoc doc = new CourseDoc();
-        doc.setId(fileName);
-        doc.setTitle(file.getOriginalFilename());
-        doc.setContent(content);
-        doc.setCourseId(courseId);
-        doc.setFileUrl(fileName);
-        elasticsearchOperations.save(doc);
-
-        return fileName;
-    }
-
-    @Override
-    public Map<String, String> getFilePreviewUrl(String fileName) throws Exception {
-        String url = minioClient.getPresignedObjectUrl(
-                GetPresignedObjectUrlArgs.builder()
-                        .method(Method.GET)
-                        .bucket(bucketName)
-                        .object(fileName)
-                        .expiry(24 * 60 * 60)
-                        .build());
-
-        Map<String, String> result = new HashMap<>();
-        result.put("url", url);
-        return result;
     }
 
     // ========== 私有辅助方法 ==========

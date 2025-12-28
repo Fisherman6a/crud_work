@@ -30,6 +30,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { NAlert } from 'naive-ui'
 
 const props = defineProps({
     courses: Array, // [{week_day: 1, section_start: 1, name: 'Java', ...}]

@@ -24,7 +24,6 @@ public class StudentController {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
-    // 1. 新增学生
     // 1. 新增学生 (包含主键冲突检测)
     @PostMapping
     public Map<String, Object> add(@RequestBody Student student) {

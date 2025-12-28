@@ -6,7 +6,6 @@ import com.example.crud_backend.dto.CourseWithTeachers;
 import com.example.crud_backend.dto.request.SearchRequest;
 import com.example.crud_backend.dto.response.SearchResponse;
 import com.example.crud_backend.entity.Course;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -44,14 +43,4 @@ public interface ICourseService extends IService<Course> {
      * 搜索课程资源（Elasticsearch）
      */
     SearchResponse searchCourseResources(SearchRequest request);
-
-    /**
-     * 上传课程附件到MinIO
-     */
-    String uploadCourseFile(MultipartFile file, Long courseId) throws Exception;
-
-    /**
-     * 获取文件预览URL
-     */
-    Map<String, String> getFilePreviewUrl(String fileName) throws Exception;
 }

@@ -2,14 +2,12 @@ package com.example.crud_backend.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.crud_backend.dto.CourseWithTeachers;
-import com.example.crud_backend.dto.common.Result;
 import com.example.crud_backend.dto.request.SearchRequest;
 import com.example.crud_backend.dto.response.SearchResponse;
 import com.example.crud_backend.entity.Course;
 import com.example.crud_backend.service.ICourseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -98,34 +96,5 @@ public class CourseController {
         result.put("data", response.getData());
         result.put("total", response.getTotal());
         return result;
-    }
-
-    /**
-     * 上传课程附件
-     */
-    @PostMapping("/upload")
-    public Result<String> upload(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("courseId") Long courseId) {
-        try {
-            String fileName = courseService.uploadCourseFile(file, courseId);
-            return Result.success("上传成功", fileName);
-        } catch (Exception e) {
-            return Result.error("上传失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 获取预览/播放链接
-     */
-    @GetMapping("/preview/{fileName}")
-    public Map<String, String> getPreviewUrl(@PathVariable String fileName) {
-        try {
-            return courseService.getFilePreviewUrl(fileName);
-        } catch (Exception e) {
-            Map<String, String> error = new java.util.HashMap<>();
-            error.put("error", "获取预览链接失败: " + e.getMessage());
-            return error;
-        }
     }
 }
