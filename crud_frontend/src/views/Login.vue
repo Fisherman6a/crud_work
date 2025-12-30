@@ -13,7 +13,7 @@
           <div style="display: flex; width: 100%; align-items: center; gap: 10px;">
             <n-input v-model:value="form.captchaCode" placeholder="请输入右侧字符" style="flex: 1;" />
             <img :src="captchaUrl" @click="loadCaptcha"
-              style="cursor: pointer; height: 34px; border: 1px solid #ddd; border-radius: 4px;" title="看不清？点击刷新" />
+              style="cursor: pointer; height: 34px; border: 1px solid #ddd; border-radius: 4px;" />
           </div>
         </n-form-item>
 
@@ -83,7 +83,7 @@ const handleLogin = async () => {
       // 注意：后端返回的角色通常是大写 (ADMIN/USER)，前端判断需注意大小写
 
       const role = res.data.role;
-      console.log('准备进行路由跳转，角色:', role); // 🔍 添加调试日志 1
+      console.log('准备进行路由跳转，角色:', role); // 添加调试日志 1
       if (role === 'ADMIN' || role === 'admin') {
         console.log('正在跳转到 管理员端...');
         router.push('/app/student') // 管理员默认跳学生管理
@@ -118,6 +118,21 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: #f0f2f5;
+  background: linear-gradient(135deg, #5ecde0 0%, #8648c4 100%);
+  /* 渐变 */
+  position: relative;
+  overflow: hidden;
+}
+
+/* 让登录卡片有玻璃效果*/
+.login-box :deep(.n-card) {
+  position: relative;
+  z-index: 10;
+  /* 层级 */
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background-color: rgba(255, 255, 255, 0.863);
+  border: 2px solid rgba(255, 255, 255, 0.822);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 </style>

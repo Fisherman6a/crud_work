@@ -67,6 +67,20 @@
         <!-- 新增/编辑排课弹窗 -->
         <n-modal v-model:show="showAddModal" preset="card" title="新增排课" style="width: 700px">
             <n-form :model="scheduleForm" label-placement="left" label-width="100px">
+                <n-form-item label="排课ID" :validation-status="idValidationStatus" :feedback="idValidationMessage">
+                    <n-input-number
+                        v-model:value="scheduleForm.scheduleId"
+                        :min="1"
+                        :max="99999999"
+                        placeholder="自动填充最大ID+1"
+                        style="width: 100%"
+                        @blur="checkIdDuplicate"
+                    />
+                    <n-text depth="3" style="margin-top: 8px; display: block; font-size: 12px">
+                        默认为当前最大ID+1，可手动修改。保存前会自动检查是否重复。
+                    </n-text>
+                </n-form-item>
+
                 <n-form-item label="选择课程">
                     <n-select
                         v-model:value="scheduleForm.courseId"
@@ -207,6 +221,10 @@ const saving = ref(false)
 const deleting = ref(false)
 const selectedSchedule = ref(null)
 
+// ID验证状态
+const idValidationStatus = ref(undefined)
+const idValidationMessage = ref('')
+
 // 星期配置
 const weekDays = [
     { label: '星期一', value: 1 },
@@ -223,6 +241,7 @@ const sections = Array.from({ length: 13 }, (_, i) => i + 1)
 
 // 表单数据
 const scheduleForm = ref({
+    scheduleId: null,  // 新增：排课ID
     courseId: null,
     teacherId: null,
     weekDay: null,
@@ -335,6 +354,7 @@ const handleCellClick = (weekDay, section) => {
     } else {
         // 空白格子，新增排课
         scheduleForm.value = {
+            scheduleId: getNextScheduleId(),  // 自动填充最大ID+1
             courseId: null,
             teacherId: null,
             weekDay: weekDay,
@@ -345,8 +365,10 @@ const handleCellClick = (weekDay, section) => {
             maxCapacity: 50,
             currentCount: 0
         }
+        idValidationStatus.value = undefined
+        idValidationMessage.value = ''
         showAddModal.value = true
-        console.log('打开新增排课弹窗')
+        console.log('打开新增排课弹窗，默认ID:', scheduleForm.value.scheduleId)
     }
 }
 
@@ -389,9 +411,54 @@ const loadTeachers = async () => {
     }
 }
 
+// 获取当前最大ID+1
+const getNextScheduleId = () => {
+    if (schedules.value.length === 0) {
+        return 10001
+    }
+    const maxId = Math.max(...schedules.value.map(s => s.id || 0))
+    return maxId + 1
+}
+
+// 检查ID是否重复
+const checkIdDuplicate = async () => {
+    const id = scheduleForm.value.scheduleId
+    if (!id) {
+        idValidationStatus.value = 'error'
+        idValidationMessage.value = 'ID不能为空'
+        return false
+    }
+
+    // 检查本地已加载的数据
+    const isDuplicate = schedules.value.some(s => s.id === id)
+    if (isDuplicate) {
+        idValidationStatus.value = 'error'
+        idValidationMessage.value = `ID ${id} 已存在，请更换`
+        return false
+    }
+
+    // 验证成功
+    idValidationStatus.value = 'success'
+    idValidationMessage.value = 'ID可用'
+    return true
+}
+
 // 保存排课
 const handleSaveSchedule = async () => {
-    // 验证
+    // 验证ID
+    if (!scheduleForm.value.scheduleId) {
+        message.warning('请填写排课ID')
+        return
+    }
+
+    // 检查ID是否重复
+    const isIdValid = await checkIdDuplicate()
+    if (!isIdValid) {
+        message.error('ID验证失败，请检查')
+        return
+    }
+
+    // 验证其他字段
     if (!scheduleForm.value.courseId) {
         message.warning('请选择课程')
         return
@@ -429,8 +496,9 @@ const handleSaveSchedule = async () => {
 
     saving.value = true
     try {
-        // 构建请求数据，移除 currentCount（由后端管理）
+        // 构建请求数据，包含ID
         const requestData = {
+            id: scheduleForm.value.scheduleId,  // 包含ID
             courseId: scheduleForm.value.courseId,
             teacherId: scheduleForm.value.teacherId,
             weekDay: scheduleForm.value.weekDay,

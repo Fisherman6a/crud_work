@@ -6,12 +6,10 @@ import com.example.crud_backend.entity.Student;
 import com.example.crud_backend.service.IStudentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -20,9 +18,6 @@ public class StudentController {
 
     @Autowired
     private IStudentService studentService;
-
-    @Autowired
-    private StringRedisTemplate redisTemplate;
 
     // 1. 新增学生 (包含主键冲突检测)
     @PostMapping

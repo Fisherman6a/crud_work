@@ -2,11 +2,6 @@
     <PageContainer>
         <div class="header">
             <n-h2 style="margin: 0;">🎓 学生信息管理</n-h2>
-            <div class="user-info">
-                <n-text depth="3">当前用户: admin (ADMIN)</n-text>
-                <n-button size="small" type="warning" ghost style="margin-left: 12px;"
-                    @click="handleLogout">退出</n-button>
-            </div>
         </div>
 
         <n-space justify="space-between" style="margin-bottom: 20px;">
@@ -53,6 +48,10 @@
                 <n-form-item label="班级" path="className">
                     <n-input v-model:value="formModel.className" placeholder="例如: 计科2101" />
                 </n-form-item>
+                <n-form-item label="入学时间" path="createTime">
+                    <n-date-picker v-model:value="formModel.createTime" type="date" placeholder="选择入学日期"
+                        style="width: 100%;" clearable />
+                </n-form-item>
             </n-form>
 
             <template #footer>
@@ -67,18 +66,16 @@
 
 <script setup>
 import { ref, reactive, onMounted, h } from 'vue'
-import { useRouter } from 'vue-router' // 跳转页面用
 import {
     NButton, NSpace, NTag, NPopconfirm, useMessage,
     NModal, NForm, NFormItem, NInput, NInputNumber,
     NRadioGroup, NRadio, NPagination, NDataTable,
-    NH2, NText, NInputGroup
+    NH2, NInputGroup, NDatePicker
 } from 'naive-ui'
 import PageContainer from '../components/PageContainer.vue' // 注意这里用相对路径，避免 @ 报错
 import axios from 'axios'
 
 const message = useMessage()
-const router = useRouter() // 路由实例
 
 // --- 状态定义 ---
 const loading = ref(false)
@@ -147,22 +144,6 @@ const columns = [
 ]
 
 // --- 核心逻辑 ---
-// 退出登录
-const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('role')
-    localStorage.removeItem('username')
-
-    message.success('已退出登录')
-
-    // 跳转回登录页 (假设路由是 /login)
-    // 如果没配路由，可以用 window.location.reload()
-    router.push('/login').catch(() => {
-        // 如果没有路由，强制刷新
-        window.location.href = '/'
-    })
-}
-
 // 加载数据
 const loadData = async () => {
     loading.value = true
@@ -191,7 +172,7 @@ const openAddModal = () => {
     Object.assign(formModel, {
         studentNumber: '', name: '', gender: '男', age: 18, className: '', createTime: Date.now() // 默认给当前时间戳
     })
-    showModal.value = true // 👈 只要 NModal 引入了，这里变 true 弹窗就会出来
+    showModal.value = true // 只要 NModal 引入了，这里变 true 弹窗就会出来
 }
 
 // 打开编辑

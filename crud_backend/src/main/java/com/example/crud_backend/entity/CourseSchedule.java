@@ -9,7 +9,7 @@ import lombok.Data;
 @Data
 @TableName("t_course_schedule")
 public class CourseSchedule {
-    @TableId(type = IdType.ASSIGN_ID)  // 使用雪花算法自动生成ID
+    @TableId(type = IdType.INPUT)  // 手动输入ID，不使用雪花算法
     private Long id;
     private Long courseId;
     private Long teacherId;
