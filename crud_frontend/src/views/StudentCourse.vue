@@ -241,7 +241,7 @@ const selectedCourse = ref(null)
 const courseResources = ref([])
 const calendarValue = ref(Date.now())
 
-// 模拟当前学生ID（实际应从localStorage或store获取）
+// 获取当前登录学生的学号（用于选课、退课、查询已选课程）
 const studentId = ref(localStorage.getItem('username') || '2021001')
 
 // 筛选选项

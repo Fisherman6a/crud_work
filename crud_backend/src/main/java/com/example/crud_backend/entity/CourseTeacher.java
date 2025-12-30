@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 @TableName("t_course_teacher")
 public class CourseTeacher {
-    @TableId(type = IdType.ASSIGN_ID)  // 使用雪花算法自动生成ID
+    @TableId(type = IdType.AUTO)  // 使用数据库自增ID
     private Long id;
     private Long courseId;
     private Long teacherId;

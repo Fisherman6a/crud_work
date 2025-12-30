@@ -73,7 +73,7 @@ CREATE TABLE `t_course` (
 -- ========================================
 DROP TABLE IF EXISTS `t_course_teacher`;
 CREATE TABLE `t_course_teacher` (
-    `id` BIGINT NOT NULL COMMENT '主键ID(雪花算法生成)',
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID(自增)',
     `course_id` BIGINT NOT NULL COMMENT '课程ID',
     `teacher_id` BIGINT NOT NULL COMMENT '教师ID',
     PRIMARY KEY (`id`),
@@ -91,7 +91,7 @@ CREATE TABLE `t_course_teacher` (
 -- ========================================
 DROP TABLE IF EXISTS `t_course_schedule`;
 CREATE TABLE `t_course_schedule` (
-    `id` BIGINT NOT NULL COMMENT '排课ID(雪花算法生成)',
+    `id` BIGINT NOT NULL COMMENT '排课ID(手动输入)',
     `course_id` BIGINT NOT NULL COMMENT '关联课程ID',
     `teacher_id` BIGINT NOT NULL COMMENT '关联教师ID',
     `semester` VARCHAR(20) DEFAULT '2025-1' COMMENT '学期(如: 2025-1)',
@@ -115,7 +115,7 @@ CREATE TABLE `t_course_schedule` (
 -- ========================================
 DROP TABLE IF EXISTS `t_student_course`;
 CREATE TABLE `t_student_course` (
-    `id` BIGINT NOT NULL COMMENT '主键ID(雪花算法生成)',
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID(自增)',
     `student_id` VARCHAR(50) NOT NULL COMMENT '学生学号',
     `schedule_id` BIGINT NOT NULL COMMENT '排课ID',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '选课时间',
@@ -187,7 +187,6 @@ INSERT INTO `t_course` (`id`, `name`, `description`, `credit`) VALUES
 (104, 'Web开发技术', '前端与后端Web开发技术', 3);
 
 -- 插入示例课程-教师关联
--- 注意：id使用雪花算法生成，这里使用简单数字示例
 INSERT INTO `t_course_teacher` (`id`, `course_id`, `teacher_id`) VALUES
 (1, 101, 1001),
 (2, 102, 1002),
@@ -195,7 +194,6 @@ INSERT INTO `t_course_teacher` (`id`, `course_id`, `teacher_id`) VALUES
 (4, 104, 1001);
 
 -- 插入示例排课
--- 注意：实际使用时id由雪花算法生成
 INSERT INTO `t_course_schedule` (`id`, `course_id`, `teacher_id`, `semester`, `week_day`, `section_start`, `section_end`, `location`, `max_capacity`, `current_count`) VALUES
 (10001, 101, 1001, '2025-1', 1, 1, 2, '教学楼A101', 50, 0),
 (10002, 101, 1001, '2025-1', 3, 3, 4, '教学楼A101', 50, 0),
@@ -214,14 +212,3 @@ INSERT INTO `t_user` (`username`, `password`, `role`, `related_id`) VALUES
 ('2021001', '123456', 'USER', '2021001'),
 ('2021002', '123456', 'USER', '2021002'),
 ('2021003', '123456', 'USER', '2021003');
-
--- ========================================
--- 脚本执行完成
--- ========================================
--- 说明：
--- 1. 所有表已创建完成，包含完整的外键约束和索引
--- 2. 已插入初始管理员账号: admin/123456
--- 3. 已插入示例数据供测试使用
--- 4. 学生表新增phone字段用于短信通知功能
--- 5. 雪花算法ID字段在应用层生成，SQL中使用BIGINT类型
--- ========================================
